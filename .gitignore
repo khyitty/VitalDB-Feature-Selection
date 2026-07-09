@@ -1,2 +1,4 @@
 __pycache__/
 *.py[cod]
+data/raw/vitaldb_raw_*cases.csv
+data/processed/vitaldb_clean_*cases.csv
