@@ -81,3 +81,13 @@ After a completed full seed-42 run, create a row-matched persistence comparison 
 ```powershell
 python scripts/compare_baselines.py --outputs-dir outputs/baselines --dataset-dir data/modeling/full --seed 42 --training-runtime-seconds <measured-seconds>
 ```
+
+Aggregate completed fixed-seed GRU runs after supplying their measured runtimes:
+
+```powershell
+python scripts/aggregate_multiseed_gru.py --outputs-dir outputs/baselines --dataset-dir data/modeling/full --seeds 7,21,42,84,123 --runtime-seconds "7=<seconds>,21=<seconds>,42=<seconds>,84=<seconds>,123=<seconds>"
+```
+
+The aggregation command validates all required artifacts and row alignment before it
+writes the seed summary, persistence comparison, and patient-by-seed table under
+`outputs/baselines/gru`.

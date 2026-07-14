@@ -1,0 +1,1423 @@
+{
+  "experiment": {
+    "model": "existing non-attention GRU baseline",
+    "seeds": [
+      7,
+      21,
+      42,
+      84,
+      123
+    ],
+    "standard_deviation_definition": "sample standard deviation across seeds (ddof=1)",
+    "runtime_seconds_by_seed": {
+      "7": 210.0541095,
+      "21": 255.187175,
+      "42": 173.070384,
+      "84": 101.427268,
+      "123": 254.3818757
+    }
+  },
+  "integrity": {
+    "7": {
+      "all_required_artifacts_present": true,
+      "fixed_configuration_matches": true,
+      "feature_order_matches_dataset_metadata": true,
+      "best_checkpoint_selected_by_validation_patient_mae_only": true,
+      "test_not_used_for_checkpoint_selection": true,
+      "checkpoint_reload_predictions_identical": true,
+      "cases_97_and_154_included": true,
+      "splits": {
+        "val": {
+          "prediction_count": 17038,
+          "case_count": 15,
+          "all_predictions_finite": true,
+          "rows_align_with_metadata_and_persistence": true
+        },
+        "test": {
+          "prediction_count": 17008,
+          "case_count": 15,
+          "all_predictions_finite": true,
+          "rows_align_with_metadata_and_persistence": true
+        }
+      }
+    },
+    "21": {
+      "all_required_artifacts_present": true,
+      "fixed_configuration_matches": true,
+      "feature_order_matches_dataset_metadata": true,
+      "best_checkpoint_selected_by_validation_patient_mae_only": true,
+      "test_not_used_for_checkpoint_selection": true,
+      "checkpoint_reload_predictions_identical": true,
+      "cases_97_and_154_included": true,
+      "splits": {
+        "val": {
+          "prediction_count": 17038,
+          "case_count": 15,
+          "all_predictions_finite": true,
+          "rows_align_with_metadata_and_persistence": true
+        },
+        "test": {
+          "prediction_count": 17008,
+          "case_count": 15,
+          "all_predictions_finite": true,
+          "rows_align_with_metadata_and_persistence": true
+        }
+      }
+    },
+    "42": {
+      "all_required_artifacts_present": true,
+      "fixed_configuration_matches": true,
+      "feature_order_matches_dataset_metadata": true,
+      "best_checkpoint_selected_by_validation_patient_mae_only": true,
+      "test_not_used_for_checkpoint_selection": true,
+      "checkpoint_reload_predictions_identical": true,
+      "cases_97_and_154_included": true,
+      "splits": {
+        "val": {
+          "prediction_count": 17038,
+          "case_count": 15,
+          "all_predictions_finite": true,
+          "rows_align_with_metadata_and_persistence": true
+        },
+        "test": {
+          "prediction_count": 17008,
+          "case_count": 15,
+          "all_predictions_finite": true,
+          "rows_align_with_metadata_and_persistence": true
+        }
+      }
+    },
+    "84": {
+      "all_required_artifacts_present": true,
+      "fixed_configuration_matches": true,
+      "feature_order_matches_dataset_metadata": true,
+      "best_checkpoint_selected_by_validation_patient_mae_only": true,
+      "test_not_used_for_checkpoint_selection": true,
+      "checkpoint_reload_predictions_identical": true,
+      "cases_97_and_154_included": true,
+      "splits": {
+        "val": {
+          "prediction_count": 17038,
+          "case_count": 15,
+          "all_predictions_finite": true,
+          "rows_align_with_metadata_and_persistence": true
+        },
+        "test": {
+          "prediction_count": 17008,
+          "case_count": 15,
+          "all_predictions_finite": true,
+          "rows_align_with_metadata_and_persistence": true
+        }
+      }
+    },
+    "123": {
+      "all_required_artifacts_present": true,
+      "fixed_configuration_matches": true,
+      "feature_order_matches_dataset_metadata": true,
+      "best_checkpoint_selected_by_validation_patient_mae_only": true,
+      "test_not_used_for_checkpoint_selection": true,
+      "checkpoint_reload_predictions_identical": true,
+      "cases_97_and_154_included": true,
+      "splits": {
+        "val": {
+          "prediction_count": 17038,
+          "case_count": 15,
+          "all_predictions_finite": true,
+          "rows_align_with_metadata_and_persistence": true
+        },
+        "test": {
+          "prediction_count": 17008,
+          "case_count": 15,
+          "all_predictions_finite": true,
+          "rows_align_with_metadata_and_persistence": true
+        }
+      }
+    }
+  },
+  "seed_split_rows": [
+    {
+      "seed": 7,
+      "split": "val",
+      "runtime_seconds": 210.0541095,
+      "device": "cpu",
+      "model_parameter_count": 30337,
+      "best_epoch": 5,
+      "completed_epochs": 13,
+      "early_stopping_epoch": 13,
+      "best_validation_patient_mae": 3.3684305793514238,
+      "pooled_mae": 3.1817881854677785,
+      "pooled_rmse": 4.4099117652445505,
+      "r_squared": 0.8128842885564568,
+      "patient_mean_mae": 3.3684306257255643,
+      "patient_median_mae": 3.3505065919778696,
+      "patient_mean_rmse": 4.661200422000644,
+      "bis_below_40_mae": 3.058944745519713,
+      "bis_40_to_60_mae": 3.0424196527763727,
+      "bis_above_60_mae": 4.805376728328174,
+      "high_bis_auprc": 0.8296357163724972,
+      "high_bis_auroc": 0.9798787662029455,
+      "low_bis_auprc": 0.8893951848674546,
+      "low_bis_auroc": 0.9293880824414745,
+      "high_bis_validation_selected_threshold": 58.04856872558594,
+      "high_bis_f1": 0.7825409197194076,
+      "high_bis_sensitivity": 0.7770897832817337,
+      "high_bis_specificity": 0.9828527880096533,
+      "low_bis_validation_selected_threshold": -39.93375778198242,
+      "low_bis_f1": 0.8056597340606887,
+      "low_bis_sensitivity": 0.8066222904932583,
+      "low_bis_specificity": 0.8973969049109938,
+      "prediction_mean": 43.169433109989434,
+      "prediction_standard_deviation": 9.555402044861204,
+      "prediction_minimum": 16.868332,
+      "prediction_maximum": 84.97887,
+      "observed_predicted_pearson_correlation": 0.9024979546434285
+    },
+    {
+      "seed": 7,
+      "split": "test",
+      "runtime_seconds": 210.0541095,
+      "device": "cpu",
+      "model_parameter_count": 30337,
+      "best_epoch": 5,
+      "completed_epochs": 13,
+      "early_stopping_epoch": 13,
+      "best_validation_patient_mae": 3.3684305793514238,
+      "pooled_mae": 3.170292767285983,
+      "pooled_rmse": 4.367474103721527,
+      "r_squared": 0.8163333098467198,
+      "patient_mean_mae": 3.293173703362169,
+      "patient_median_mae": 3.3186790515021456,
+      "patient_mean_rmse": 4.4856605210395735,
+      "bis_below_40_mae": 2.897731014383263,
+      "bis_40_to_60_mae": 3.228041976545131,
+      "bis_above_60_mae": 4.371825680248007,
+      "high_bis_auprc": 0.8744644933037687,
+      "high_bis_auroc": 0.9859937232361362,
+      "low_bis_auprc": 0.8816783145122826,
+      "low_bis_auroc": 0.9080831463455319,
+      "high_bis_validation_selected_threshold": 58.04856872558594,
+      "high_bis_f1": 0.7998292787025181,
+      "high_bis_sensitivity": 0.8299379982285208,
+      "high_bis_specificity": 0.9825555765476416,
+      "low_bis_validation_selected_threshold": -39.93375778198242,
+      "low_bis_f1": 0.7904425034288601,
+      "low_bis_sensitivity": 0.7954380357402295,
+      "low_bis_specificity": 0.8523456790123457,
+      "prediction_mean": 42.68409284783631,
+      "prediction_standard_deviation": 9.66898959490792,
+      "prediction_minimum": 15.185416,
+      "prediction_maximum": 85.102615,
+      "observed_predicted_pearson_correlation": 0.9046789734359695
+    },
+    {
+      "seed": 21,
+      "split": "val",
+      "runtime_seconds": 255.187175,
+      "device": "cpu",
+      "model_parameter_count": 30337,
+      "best_epoch": 8,
+      "completed_epochs": 16,
+      "early_stopping_epoch": 16,
+      "best_validation_patient_mae": 3.3770641437482385,
+      "pooled_mae": 3.1777604165981925,
+      "pooled_rmse": 4.41539233176441,
+      "r_squared": 0.8124189108366675,
+      "patient_mean_mae": 3.3770641696220296,
+      "patient_median_mae": 3.359781336099585,
+      "patient_mean_rmse": 4.676855809254855,
+      "bis_below_40_mae": 3.136892869772999,
+      "bis_40_to_60_mae": 3.0035736948518257,
+      "bis_above_60_mae": 4.696047626160991,
+      "high_bis_auprc": 0.8243309278858194,
+      "high_bis_auroc": 0.9792970665506874,
+      "low_bis_auprc": 0.8888264926506005,
+      "low_bis_auroc": 0.9296953906561783,
+      "high_bis_validation_selected_threshold": 56.971675872802734,
+      "high_bis_f1": 0.773598820058997,
+      "high_bis_sensitivity": 0.8119195046439629,
+      "high_bis_specificity": 0.9764384605614124,
+      "low_bis_validation_selected_threshold": -40.24681854248047,
+      "low_bis_f1": 0.8072987721691678,
+      "low_bis_sensitivity": 0.8079877112135176,
+      "low_bis_specificity": 0.8984703461848108,
+      "prediction_mean": 43.363641491607,
+      "prediction_standard_deviation": 9.378052319715753,
+      "prediction_minimum": 18.40536,
+      "prediction_maximum": 87.380646,
+      "observed_predicted_pearson_correlation": 0.9015306087446231
+    },
+    {
+      "seed": 21,
+      "split": "test",
+      "runtime_seconds": 255.187175,
+      "device": "cpu",
+      "model_parameter_count": 30337,
+      "best_epoch": 8,
+      "completed_epochs": 16,
+      "early_stopping_epoch": 16,
+      "best_validation_patient_mae": 3.3770641437482385,
+      "pooled_mae": 3.1440315818438385,
+      "pooled_rmse": 4.335914305079336,
+      "r_squared": 0.8189781066513157,
+      "patient_mean_mae": 3.272591677505694,
+      "patient_median_mae": 3.272106217811159,
+      "patient_mean_rmse": 4.471004634053003,
+      "bis_below_40_mae": 2.939307175795438,
+      "bis_40_to_60_mae": 3.153723823477101,
+      "bis_above_60_mae": 4.3149143817537645,
+      "high_bis_auprc": 0.8768718630113952,
+      "high_bis_auroc": 0.9859702953988119,
+      "low_bis_auprc": 0.8808850520887773,
+      "low_bis_auroc": 0.9087071779998314,
+      "high_bis_validation_selected_threshold": 56.971675872802734,
+      "high_bis_f1": 0.8027995059695349,
+      "high_bis_sensitivity": 0.8635961027457927,
+      "high_bis_specificity": 0.9795327161660055,
+      "low_bis_validation_selected_threshold": -40.24681854248047,
+      "low_bis_f1": 0.7906441165887009,
+      "low_bis_sensitivity": 0.7980531744878686,
+      "low_bis_specificity": 0.8499753086419753,
+      "prediction_mean": 42.94210740451552,
+      "prediction_standard_deviation": 9.526768556330653,
+      "prediction_minimum": 16.756205,
+      "prediction_maximum": 87.640854,
+      "observed_predicted_pearson_correlation": 0.905533521720649
+    },
+    {
+      "seed": 42,
+      "split": "val",
+      "runtime_seconds": 173.070384,
+      "device": "cpu",
+      "model_parameter_count": 30337,
+      "best_epoch": 10,
+      "completed_epochs": 18,
+      "early_stopping_epoch": 18,
+      "best_validation_patient_mae": 3.3865682073308063,
+      "pooled_mae": 3.205640497534922,
+      "pooled_rmse": 4.463544894237956,
+      "r_squared": 0.8083052276281153,
+      "patient_mean_mae": 3.386568205232208,
+      "patient_median_mae": 3.1978058205128206,
+      "patient_mean_rmse": 4.701216830214276,
+      "bis_below_40_mae": 2.9228022933947777,
+      "bis_40_to_60_mae": 3.144504977040558,
+      "bis_above_60_mae": 4.956101743034056,
+      "high_bis_auprc": 0.8233386500570506,
+      "high_bis_auroc": 0.9790434270200423,
+      "low_bis_auprc": 0.8886503114730216,
+      "low_bis_auroc": 0.9301034275049493,
+      "high_bis_validation_selected_threshold": 57.51201629638672,
+      "high_bis_f1": 0.7760031164783794,
+      "high_bis_sensitivity": 0.7708978328173375,
+      "high_bis_specificity": 0.9822812142766417,
+      "low_bis_validation_selected_threshold": -40.115020751953125,
+      "low_bis_f1": 0.8102075982604414,
+      "low_bis_sensitivity": 0.8426352619901007,
+      "low_bis_specificity": 0.8755702656767153,
+      "prediction_mean": 42.89672915207184,
+      "prediction_standard_deviation": 9.365691265607579,
+      "prediction_minimum": 19.689363,
+      "prediction_maximum": 86.689026,
+      "observed_predicted_pearson_correlation": 0.9004668782169861
+    },
+    {
+      "seed": 42,
+      "split": "test",
+      "runtime_seconds": 173.070384,
+      "device": "cpu",
+      "model_parameter_count": 30337,
+      "best_epoch": 10,
+      "completed_epochs": 18,
+      "early_stopping_epoch": 18,
+      "best_validation_patient_mae": 3.3865682073308063,
+      "pooled_mae": 3.174414620413923,
+      "pooled_rmse": 4.3704286272718615,
+      "r_squared": 0.8160847308765412,
+      "patient_mean_mae": 3.293206405649386,
+      "patient_median_mae": 3.361020431330472,
+      "patient_mean_rmse": 4.499126305177183,
+      "bis_below_40_mae": 2.7291128218799945,
+      "bis_40_to_60_mae": 3.3558656535126725,
+      "bis_above_60_mae": 4.443394944198406,
+      "high_bis_auprc": 0.8741609430215174,
+      "high_bis_auroc": 0.9860819123094933,
+      "low_bis_auprc": 0.8800339023445312,
+      "low_bis_auroc": 0.908343497936408,
+      "high_bis_validation_selected_threshold": 57.51201629638672,
+      "high_bis_f1": 0.8037622915775973,
+      "high_bis_sensitivity": 0.8325952170062002,
+      "high_bis_specificity": 0.9829964103532968,
+      "low_bis_validation_selected_threshold": -40.115020751953125,
+      "low_bis_f1": 0.7894772711783548,
+      "low_bis_sensitivity": 0.8414935347958739,
+      "low_bis_specificity": 0.8026666666666666,
+      "prediction_mean": 42.35723639604892,
+      "prediction_standard_deviation": 9.579806879551946,
+      "prediction_minimum": 18.341997,
+      "prediction_maximum": 87.25174,
+      "observed_predicted_pearson_correlation": 0.9051633483761915
+    },
+    {
+      "seed": 84,
+      "split": "val",
+      "runtime_seconds": 101.427268,
+      "device": "cpu",
+      "model_parameter_count": 30337,
+      "best_epoch": 5,
+      "completed_epochs": 13,
+      "early_stopping_epoch": 13,
+      "best_validation_patient_mae": 3.372770533752329,
+      "pooled_mae": 3.202264775560512,
+      "pooled_rmse": 4.440404997247941,
+      "r_squared": 0.8102876426668717,
+      "patient_mean_mae": 3.3727705753533224,
+      "patient_median_mae": 3.326686423076923,
+      "patient_mean_rmse": 4.669215512463149,
+      "bis_below_40_mae": 3.125690583888036,
+      "bis_40_to_60_mae": 3.0139013342773335,
+      "bis_above_60_mae": 4.9909625565015485,
+      "high_bis_auprc": 0.8290599034364865,
+      "high_bis_auroc": 0.9789101188016103,
+      "low_bis_auprc": 0.8874071969954621,
+      "low_bis_auroc": 0.9286901578208147,
+      "high_bis_validation_selected_threshold": 57.931297302246094,
+      "high_bis_f1": 0.7803330689928628,
+      "high_bis_sensitivity": 0.7616099071207431,
+      "high_bis_specificity": 0.9843769846310174,
+      "low_bis_validation_selected_threshold": -40.50136947631836,
+      "low_bis_f1": 0.8044943820224718,
+      "low_bis_sensitivity": 0.8248847926267281,
+      "low_bis_specificity": 0.8816530995616781,
+      "prediction_mean": 43.283392527409326,
+      "prediction_standard_deviation": 9.32558090751004,
+      "prediction_minimum": 19.32538,
+      "prediction_maximum": 84.23631,
+      "observed_predicted_pearson_correlation": 0.9003205186717144
+    },
+    {
+      "seed": 84,
+      "split": "test",
+      "runtime_seconds": 101.427268,
+      "device": "cpu",
+      "model_parameter_count": 30337,
+      "best_epoch": 5,
+      "completed_epochs": 13,
+      "early_stopping_epoch": 13,
+      "best_validation_patient_mae": 3.372770533752329,
+      "pooled_mae": 3.2191594910630292,
+      "pooled_rmse": 4.385295722707376,
+      "r_squared": 0.8148313359503319,
+      "patient_mean_mae": 3.321327704124786,
+      "patient_median_mae": 3.3193999817596564,
+      "patient_mean_rmse": 4.487763716839838,
+      "bis_below_40_mae": 3.0389961728897283,
+      "bis_40_to_60_mae": 3.176712246665184,
+      "bis_above_60_mae": 4.655757834366696,
+      "high_bis_auprc": 0.8745509606996407,
+      "high_bis_auroc": 0.9853376322299211,
+      "low_bis_auprc": 0.8784072778568037,
+      "low_bis_auroc": 0.9060464590698499,
+      "high_bis_validation_selected_threshold": 57.931297302246094,
+      "high_bis_f1": 0.7942053685556029,
+      "high_bis_sensitivity": 0.8255093002657219,
+      "high_bis_specificity": 0.9819887902260848,
+      "low_bis_validation_selected_threshold": -40.50136947631836,
+      "low_bis_f1": 0.7847461198117845,
+      "low_bis_sensitivity": 0.811710010169984,
+      "low_bis_specificity": 0.825283950617284,
+      "prediction_mean": 42.99743290475071,
+      "prediction_standard_deviation": 9.49195273089623,
+      "prediction_minimum": 17.97024,
+      "prediction_maximum": 85.10186,
+      "observed_predicted_pearson_correlation": 0.9032946237520131
+    },
+    {
+      "seed": 123,
+      "split": "val",
+      "runtime_seconds": 254.3818757,
+      "device": "cpu",
+      "model_parameter_count": 30337,
+      "best_epoch": 5,
+      "completed_epochs": 13,
+      "early_stopping_epoch": 13,
+      "best_validation_patient_mae": 3.37751988745333,
+      "pooled_mae": 3.1954450043432328,
+      "pooled_rmse": 4.428516406096526,
+      "r_squared": 0.8113021417366958,
+      "patient_mean_mae": 3.3775199000232106,
+      "patient_median_mae": 3.334924370677731,
+      "patient_mean_rmse": 4.6751524785879015,
+      "bis_below_40_mae": 3.2110865495818404,
+      "bis_40_to_60_mae": 2.9761486708809546,
+      "bis_above_60_mae": 4.802673359907121,
+      "high_bis_auprc": 0.8278151950647896,
+      "high_bis_auroc": 0.9793820063004847,
+      "low_bis_auprc": 0.8874647035500062,
+      "low_bis_auroc": 0.928622163130126,
+      "high_bis_validation_selected_threshold": 57.78192901611328,
+      "high_bis_f1": 0.7786666666666666,
+      "high_bis_sensitivity": 0.7910216718266254,
+      "high_bis_specificity": 0.9802489521148228,
+      "low_bis_validation_selected_threshold": -40.30879592895508,
+      "low_bis_f1": 0.8041502315211798,
+      "low_bis_sensitivity": 0.8003072196620584,
+      "low_bis_specificity": 0.9003488684139905,
+      "prediction_mean": 43.50845480619791,
+      "prediction_standard_deviation": 9.335595183821633,
+      "prediction_minimum": 18.945173,
+      "prediction_maximum": 85.7015,
+      "observed_predicted_pearson_correlation": 0.9009392358268307
+    },
+    {
+      "seed": 123,
+      "split": "test",
+      "runtime_seconds": 254.3818757,
+      "device": "cpu",
+      "model_parameter_count": 30337,
+      "best_epoch": 5,
+      "completed_epochs": 13,
+      "early_stopping_epoch": 13,
+      "best_validation_patient_mae": 3.37751988745333,
+      "pooled_mae": 3.234475710253998,
+      "pooled_rmse": 4.413411104907623,
+      "r_squared": 0.812449386385879,
+      "patient_mean_mae": 3.3387908870253966,
+      "patient_median_mae": 3.3680806309012876,
+      "patient_mean_rmse": 4.518533350241321,
+      "bis_below_40_mae": 3.0663678105477263,
+      "bis_40_to_60_mae": 3.2158760206758563,
+      "bis_above_60_mae": 4.4075576244464125,
+      "high_bis_auprc": 0.8704715383938234,
+      "high_bis_auroc": 0.985212795325321,
+      "low_bis_auprc": 0.8794283055194557,
+      "low_bis_auroc": 0.9072444437269853,
+      "high_bis_validation_selected_threshold": 57.78192901611328,
+      "high_bis_f1": 0.8,
+      "high_bis_sensitivity": 0.8467670504871567,
+      "high_bis_specificity": 0.9807922413250205,
+      "low_bis_validation_selected_threshold": -40.30879592895508,
+      "low_bis_f1": 0.7837332950136515,
+      "low_bis_sensitivity": 0.7923870405346506,
+      "low_bis_specificity": 0.8438518518518519,
+      "prediction_mean": 43.00354973189088,
+      "prediction_standard_deviation": 9.571234407274876,
+      "prediction_minimum": 17.762974,
+      "prediction_maximum": 85.70666,
+      "observed_predicted_pearson_correlation": 0.9023032495777995
+    }
+  ],
+  "across_seed_by_split": {
+    "val": {
+      "runtime_seconds": {
+        "count": 5,
+        "mean": 198.82416244,
+        "standard_deviation": 64.30196837769162,
+        "minimum": 101.427268,
+        "maximum": 255.187175
+      },
+      "best_epoch": {
+        "count": 5,
+        "mean": 6.6,
+        "standard_deviation": 2.3021728866442674,
+        "minimum": 5.0,
+        "maximum": 10.0
+      },
+      "completed_epochs": {
+        "count": 5,
+        "mean": 14.6,
+        "standard_deviation": 2.3021728866442674,
+        "minimum": 13.0,
+        "maximum": 18.0
+      },
+      "best_validation_patient_mae": {
+        "count": 5,
+        "mean": 3.376470670327225,
+        "standard_deviation": 0.006740686062818432,
+        "minimum": 3.3684305793514238,
+        "maximum": 3.3865682073308063
+      },
+      "pooled_mae": {
+        "count": 5,
+        "mean": 3.1925797759009273,
+        "standard_deviation": 0.012335548591913378,
+        "minimum": 3.1777604165981925,
+        "maximum": 3.205640497534922
+      },
+      "pooled_rmse": {
+        "count": 5,
+        "mean": 4.431554078918277,
+        "standard_deviation": 0.021450934061747168,
+        "minimum": 4.4099117652445505,
+        "maximum": 4.463544894237956
+      },
+      "r_squared": {
+        "count": 5,
+        "mean": 0.8110396422849615,
+        "standard_deviation": 0.0018314293944901325,
+        "minimum": 0.8083052276281153,
+        "maximum": 0.8128842885564568
+      },
+      "patient_mean_mae": {
+        "count": 5,
+        "mean": 3.3764706951912666,
+        "standard_deviation": 0.006740666798149987,
+        "minimum": 3.3684306257255643,
+        "maximum": 3.386568205232208
+      },
+      "patient_median_mae": {
+        "count": 5,
+        "mean": 3.313940908468986,
+        "standard_deviation": 0.06619763307570231,
+        "minimum": 3.1978058205128206,
+        "maximum": 3.359781336099585
+      },
+      "patient_mean_rmse": {
+        "count": 5,
+        "mean": 4.676728210504165,
+        "standard_deviation": 0.014997871144641574,
+        "minimum": 4.661200422000644,
+        "maximum": 4.701216830214276
+      },
+      "bis_below_40_mae": {
+        "count": 5,
+        "mean": 3.091083408431473,
+        "standard_deviation": 0.10845315182048225,
+        "minimum": 2.9228022933947777,
+        "maximum": 3.2110865495818404
+      },
+      "bis_40_to_60_mae": {
+        "count": 5,
+        "mean": 3.0361096659654088,
+        "standard_deviation": 0.06507011553090707,
+        "minimum": 2.9761486708809546,
+        "maximum": 3.144504977040558
+      },
+      "bis_above_60_mae": {
+        "count": 5,
+        "mean": 4.850232402786378,
+        "standard_deviation": 0.12151145296111605,
+        "minimum": 4.696047626160991,
+        "maximum": 4.9909625565015485
+      },
+      "high_bis_auprc": {
+        "count": 5,
+        "mean": 0.8268360785633286,
+        "standard_deviation": 0.0028394464304678253,
+        "minimum": 0.8233386500570506,
+        "maximum": 0.8296357163724972
+      },
+      "high_bis_auroc": {
+        "count": 5,
+        "mean": 0.9793022769751539,
+        "standard_deviation": 0.00037400370183290183,
+        "minimum": 0.9789101188016103,
+        "maximum": 0.9798787662029455
+      },
+      "low_bis_auprc": {
+        "count": 5,
+        "mean": 0.8883487779073092,
+        "standard_deviation": 0.000877818813344402,
+        "minimum": 0.8874071969954621,
+        "maximum": 0.8893951848674546
+      },
+      "low_bis_auroc": {
+        "count": 5,
+        "mean": 0.9292998443107086,
+        "standard_deviation": 0.0006404994589530673,
+        "minimum": 0.928622163130126,
+        "maximum": 0.9301034275049493
+      },
+      "high_bis_validation_selected_threshold": {
+        "count": 5,
+        "mean": 57.64909744262695,
+        "standard_deviation": 0.42852932149109085,
+        "minimum": 56.971675872802734,
+        "maximum": 58.04856872558594
+      },
+      "high_bis_f1": {
+        "count": 5,
+        "mean": 0.7782285183832627,
+        "standard_deviation": 0.0035215207184740934,
+        "minimum": 0.773598820058997,
+        "maximum": 0.7825409197194076
+      },
+      "high_bis_sensitivity": {
+        "count": 5,
+        "mean": 0.7825077399380804,
+        "standard_deviation": 0.019611237553126836,
+        "minimum": 0.7616099071207431,
+        "maximum": 0.8119195046439629
+      },
+      "high_bis_specificity": {
+        "count": 5,
+        "mean": 0.9812396799187095,
+        "standard_deviation": 0.0030644265894278593,
+        "minimum": 0.9764384605614124,
+        "maximum": 0.9843769846310174
+      },
+      "low_bis_validation_selected_threshold": {
+        "count": 5,
+        "mean": -40.22115249633789,
+        "standard_deviation": 0.21255666425714909,
+        "minimum": -40.50136947631836,
+        "maximum": -39.93375778198242
+      },
+      "low_bis_f1": {
+        "count": 5,
+        "mean": 0.8063621436067899,
+        "standard_deviation": 0.0024768559777431894,
+        "minimum": 0.8041502315211798,
+        "maximum": 0.8102075982604414
+      },
+      "low_bis_sensitivity": {
+        "count": 5,
+        "mean": 0.8164874551971326,
+        "standard_deviation": 0.017216200367538417,
+        "minimum": 0.8003072196620584,
+        "maximum": 0.8426352619901007
+      },
+      "low_bis_specificity": {
+        "count": 5,
+        "mean": 0.8906878969496377,
+        "standard_deviation": 0.011281422923374394,
+        "minimum": 0.8755702656767153,
+        "maximum": 0.9003488684139905
+      },
+      "prediction_mean": {
+        "count": 5,
+        "mean": 43.2443302174551,
+        "standard_deviation": 0.23019498253630977,
+        "minimum": 42.89672915207184,
+        "maximum": 43.50845480619791
+      },
+      "prediction_standard_deviation": {
+        "count": 5,
+        "mean": 9.39206434430324,
+        "standard_deviation": 0.09378152002103567,
+        "minimum": 9.32558090751004,
+        "maximum": 9.555402044861204
+      },
+      "prediction_minimum": {
+        "count": 5,
+        "mean": 18.6467216,
+        "standard_deviation": 1.1020068673095014,
+        "minimum": 16.868332,
+        "maximum": 19.689363
+      },
+      "prediction_maximum": {
+        "count": 5,
+        "mean": 85.7972704,
+        "standard_deviation": 1.2666742769365753,
+        "minimum": 84.23631,
+        "maximum": 87.380646
+      },
+      "observed_predicted_pearson_correlation": {
+        "count": 5,
+        "mean": 0.9011510392207164,
+        "standard_deviation": 0.0008889538118513126,
+        "minimum": 0.9003205186717144,
+        "maximum": 0.9024979546434285
+      }
+    },
+    "test": {
+      "runtime_seconds": {
+        "count": 5,
+        "mean": 198.82416244,
+        "standard_deviation": 64.30196837769162,
+        "minimum": 101.427268,
+        "maximum": 255.187175
+      },
+      "best_epoch": {
+        "count": 5,
+        "mean": 6.6,
+        "standard_deviation": 2.3021728866442674,
+        "minimum": 5.0,
+        "maximum": 10.0
+      },
+      "completed_epochs": {
+        "count": 5,
+        "mean": 14.6,
+        "standard_deviation": 2.3021728866442674,
+        "minimum": 13.0,
+        "maximum": 18.0
+      },
+      "best_validation_patient_mae": {
+        "count": 5,
+        "mean": 3.376470670327225,
+        "standard_deviation": 0.006740686062818432,
+        "minimum": 3.3684305793514238,
+        "maximum": 3.3865682073308063
+      },
+      "pooled_mae": {
+        "count": 5,
+        "mean": 3.1884748341721543,
+        "standard_deviation": 0.03728642049562607,
+        "minimum": 3.1440315818438385,
+        "maximum": 3.234475710253998
+      },
+      "pooled_rmse": {
+        "count": 5,
+        "mean": 4.374504772737545,
+        "standard_deviation": 0.02821974816918701,
+        "minimum": 4.335914305079336,
+        "maximum": 4.413411104907623
+      },
+      "r_squared": {
+        "count": 5,
+        "mean": 0.8157353739421576,
+        "standard_deviation": 0.002377493004579187,
+        "minimum": 0.812449386385879,
+        "maximum": 0.8189781066513157
+      },
+      "patient_mean_mae": {
+        "count": 5,
+        "mean": 3.3038180755334863,
+        "standard_deviation": 0.026127967618505582,
+        "minimum": 3.272591677505694,
+        "maximum": 3.3387908870253966
+      },
+      "patient_median_mae": {
+        "count": 5,
+        "mean": 3.3278572626609444,
+        "standard_deviation": 0.03867059370815047,
+        "minimum": 3.272106217811159,
+        "maximum": 3.3680806309012876
+      },
+      "patient_mean_rmse": {
+        "count": 5,
+        "mean": 4.492417705470183,
+        "standard_deviation": 0.017697958858007696,
+        "minimum": 4.471004634053003,
+        "maximum": 4.518533350241321
+      },
+      "bis_below_40_mae": {
+        "count": 5,
+        "mean": 2.9343029990992298,
+        "standard_deviation": 0.13404041903376335,
+        "minimum": 2.7291128218799945,
+        "maximum": 3.0663678105477263
+      },
+      "bis_40_to_60_mae": {
+        "count": 5,
+        "mean": 3.2260439441751894,
+        "standard_deviation": 0.0784615690225959,
+        "minimum": 3.153723823477101,
+        "maximum": 3.3558656535126725
+      },
+      "bis_above_60_mae": {
+        "count": 5,
+        "mean": 4.438690093002657,
+        "standard_deviation": 0.13028914666258518,
+        "minimum": 4.3149143817537645,
+        "maximum": 4.655757834366696
+      },
+      "high_bis_auprc": {
+        "count": 5,
+        "mean": 0.8741039596860289,
+        "standard_deviation": 0.002301565486731559,
+        "minimum": 0.8704715383938234,
+        "maximum": 0.8768718630113952
+      },
+      "high_bis_auroc": {
+        "count": 5,
+        "mean": 0.9857192716999368,
+        "standard_deviation": 0.0004098816164261427,
+        "minimum": 0.985212795325321,
+        "maximum": 0.9860819123094933
+      },
+      "low_bis_auprc": {
+        "count": 5,
+        "mean": 0.8800865704643701,
+        "standard_deviation": 0.0012676092013075748,
+        "minimum": 0.8784072778568037,
+        "maximum": 0.8816783145122826
+      },
+      "low_bis_auroc": {
+        "count": 5,
+        "mean": 0.9076849450157212,
+        "standard_deviation": 0.0010625316586349949,
+        "minimum": 0.9060464590698499,
+        "maximum": 0.9087071779998314
+      },
+      "high_bis_validation_selected_threshold": {
+        "count": 5,
+        "mean": 57.64909744262695,
+        "standard_deviation": 0.42852932149109085,
+        "minimum": 56.971675872802734,
+        "maximum": 58.04856872558594
+      },
+      "high_bis_f1": {
+        "count": 5,
+        "mean": 0.8001192889610506,
+        "standard_deviation": 0.0037258496227366694,
+        "minimum": 0.7942053685556029,
+        "maximum": 0.8037622915775973
+      },
+      "high_bis_sensitivity": {
+        "count": 5,
+        "mean": 0.8396811337466785,
+        "standard_deviation": 0.015557279070195098,
+        "minimum": 0.8255093002657219,
+        "maximum": 0.8635961027457927
+      },
+      "high_bis_specificity": {
+        "count": 5,
+        "mean": 0.9815731469236099,
+        "standard_deviation": 0.0014086143316960247,
+        "minimum": 0.9795327161660055,
+        "maximum": 0.9829964103532968
+      },
+      "low_bis_validation_selected_threshold": {
+        "count": 5,
+        "mean": -40.22115249633789,
+        "standard_deviation": 0.21255666425714909,
+        "minimum": -40.50136947631836,
+        "maximum": -39.93375778198242
+      },
+      "low_bis_f1": {
+        "count": 5,
+        "mean": 0.7878086612042704,
+        "standard_deviation": 0.003307149857319376,
+        "minimum": 0.7837332950136515,
+        "maximum": 0.7906441165887009
+      },
+      "low_bis_sensitivity": {
+        "count": 5,
+        "mean": 0.8078163591457214,
+        "standard_deviation": 0.020223249095200915,
+        "minimum": 0.7923870405346506,
+        "maximum": 0.8414935347958739
+      },
+      "low_bis_specificity": {
+        "count": 5,
+        "mean": 0.8348246913580247,
+        "standard_deviation": 0.020875704329321152,
+        "minimum": 0.8026666666666666,
+        "maximum": 0.8523456790123457
+      },
+      "prediction_mean": {
+        "count": 5,
+        "mean": 42.79688385700847,
+        "standard_deviation": 0.2784027140762176,
+        "minimum": 42.35723639604892,
+        "maximum": 43.00354973189088
+      },
+      "prediction_standard_deviation": {
+        "count": 5,
+        "mean": 9.567750433792323,
+        "standard_deviation": 0.0667676376390152,
+        "minimum": 9.49195273089623,
+        "maximum": 9.66898959490792
+      },
+      "prediction_minimum": {
+        "count": 5,
+        "mean": 17.2033664,
+        "standard_deviation": 1.2717913117057764,
+        "minimum": 15.185416,
+        "maximum": 18.341997
+      },
+      "prediction_maximum": {
+        "count": 5,
+        "mean": 86.1607458,
+        "standard_deviation": 1.2070690192831566,
+        "minimum": 85.10186,
+        "maximum": 87.640854
+      },
+      "observed_predicted_pearson_correlation": {
+        "count": 5,
+        "mean": 0.9041947433725245,
+        "standard_deviation": 0.0013558176480995296,
+        "minimum": 0.9023032495777995,
+        "maximum": 0.905533521720649
+      }
+    }
+  },
+  "test_patient_stability": {
+    "patient_count": 15,
+    "patients_seed_averaged_gru_mae_lower": 12,
+    "percentage_patients_seed_averaged_gru_mae_lower": 80.0,
+    "median_patient_difference_gru_minus_persistence": -0.1914842800922371,
+    "five_largest_improvements": [
+      {
+        "case_id": 31,
+        "mean_gru_minus_persistence_mae": -0.4976732483333331
+      },
+      {
+        "case_id": 29,
+        "mean_gru_minus_persistence_mae": -0.4498722864501679
+      },
+      {
+        "case_id": 77,
+        "mean_gru_minus_persistence_mae": -0.4187924968512486
+      },
+      {
+        "case_id": 134,
+        "mean_gru_minus_persistence_mae": -0.35712991880341943
+      },
+      {
+        "case_id": 136,
+        "mean_gru_minus_persistence_mae": -0.3358125678642711
+      }
+    ],
+    "five_largest_deteriorations": [
+      {
+        "case_id": 154,
+        "mean_gru_minus_persistence_mae": 0.21668835528517097
+      },
+      {
+        "case_id": 17,
+        "mean_gru_minus_persistence_mae": 0.04204659843505443
+      },
+      {
+        "case_id": 137,
+        "mean_gru_minus_persistence_mae": 0.02671407643979027
+      },
+      {
+        "case_id": 30,
+        "mean_gru_minus_persistence_mae": -0.04167063648068696
+      },
+      {
+        "case_id": 38,
+        "mean_gru_minus_persistence_mae": -0.06142691111111089
+      }
+    ],
+    "highly_seed_sensitive_definition": "sample SD of GRU patient MAE > 0.2 BIS points, or difference sign changes across seeds",
+    "highly_seed_sensitive_patients": [
+      {
+        "case_id": 17,
+        "standard_deviation_gru_mae": 0.151520150216035,
+        "difference_sign_changes_across_seeds": true
+      },
+      {
+        "case_id": 38,
+        "standard_deviation_gru_mae": 0.06355303791730708,
+        "difference_sign_changes_across_seeds": true
+      },
+      {
+        "case_id": 97,
+        "standard_deviation_gru_mae": 0.06424222006797346,
+        "difference_sign_changes_across_seeds": true
+      },
+      {
+        "case_id": 137,
+        "standard_deviation_gru_mae": 0.03427233679092532,
+        "difference_sign_changes_across_seeds": true
+      }
+    ]
+  },
+  "test_patient_seed_averages": [
+    {
+      "case_id": 17,
+      "mean_gru_mae": 2.891498876995305,
+      "standard_deviation_gru_mae": 0.151520150216035,
+      "persistence_mae": 2.8494522785602507,
+      "mean_gru_minus_persistence_mae": 0.04204659843505443,
+      "seeds_gru_beats_persistence": 3,
+      "minimum_difference": -0.0928941977047475,
+      "maximum_difference": 0.20964150547730798,
+      "difference_sign_changes_across_seeds": true,
+      "highly_seed_sensitive": true
+    },
+    {
+      "case_id": 29,
+      "mean_gru_mae": 3.976499468868981,
+      "standard_deviation_gru_mae": 0.014441033858357101,
+      "persistence_mae": 4.426371755319149,
+      "mean_gru_minus_persistence_mae": -0.4498722864501679,
+      "seeds_gru_beats_persistence": 5,
+      "minimum_difference": -0.46986506438969755,
+      "maximum_difference": -0.430584830347144,
+      "difference_sign_changes_across_seeds": false,
+      "highly_seed_sensitive": false
+    },
+    {
+      "case_id": 30,
+      "mean_gru_mae": 3.327857262660944,
+      "standard_deviation_gru_mae": 0.03867059370815044,
+      "persistence_mae": 3.369527899141631,
+      "mean_gru_minus_persistence_mae": -0.04167063648068696,
+      "seeds_gru_beats_persistence": 5,
+      "minimum_difference": -0.09742168133047224,
+      "maximum_difference": -0.001447268240343469,
+      "difference_sign_changes_across_seeds": false,
+      "highly_seed_sensitive": false
+    },
+    {
+      "case_id": 31,
+      "mean_gru_mae": 4.053646237777778,
+      "standard_deviation_gru_mae": 0.03960794539299555,
+      "persistence_mae": 4.551319486111111,
+      "mean_gru_minus_persistence_mae": -0.4976732483333331,
+      "seeds_gru_beats_persistence": 5,
+      "minimum_difference": -0.5358264388888889,
+      "maximum_difference": -0.44699694305555493,
+      "difference_sign_changes_across_seeds": false,
+      "highly_seed_sensitive": false
+    },
+    {
+      "case_id": 38,
+      "mean_gru_mae": 2.9458417,
+      "standard_deviation_gru_mae": 0.06355303791730708,
+      "persistence_mae": 3.007268611111111,
+      "mean_gru_minus_persistence_mae": -0.06142691111111089,
+      "seeds_gru_beats_persistence": 4,
+      "minimum_difference": -0.13758252962962914,
+      "maximum_difference": 0.03915172314814841,
+      "difference_sign_changes_across_seeds": true,
+      "highly_seed_sensitive": true
+    },
+    {
+      "case_id": 44,
+      "mean_gru_mae": 3.1585156999231363,
+      "standard_deviation_gru_mae": 0.07575127522220118,
+      "persistence_mae": 3.3499999800153732,
+      "mean_gru_minus_persistence_mae": -0.1914842800922371,
+      "seeds_gru_beats_persistence": 5,
+      "minimum_difference": -0.25059641737125293,
+      "maximum_difference": -0.05871270330515044,
+      "difference_sign_changes_across_seeds": false,
+      "highly_seed_sensitive": false
+    },
+    {
+      "case_id": 68,
+      "mean_gru_mae": 3.4470254835877867,
+      "standard_deviation_gru_mae": 0.043530638749080114,
+      "persistence_mae": 3.635591683206107,
+      "mean_gru_minus_persistence_mae": -0.1885661996183207,
+      "seeds_gru_beats_persistence": 5,
+      "minimum_difference": -0.2532922480916029,
+      "maximum_difference": -0.13598385687022896,
+      "difference_sign_changes_across_seeds": false,
+      "highly_seed_sensitive": false
+    },
+    {
+      "case_id": 69,
+      "mean_gru_mae": 3.403555298863637,
+      "standard_deviation_gru_mae": 0.044906862159987654,
+      "persistence_mae": 3.6520833579545453,
+      "mean_gru_minus_persistence_mae": -0.24852805909090883,
+      "seeds_gru_beats_persistence": 5,
+      "minimum_difference": -0.3081095511363632,
+      "maximum_difference": -0.19655991098484815,
+      "difference_sign_changes_across_seeds": false,
+      "highly_seed_sensitive": false
+    },
+    {
+      "case_id": 77,
+      "mean_gru_mae": 3.390110886427796,
+      "standard_deviation_gru_mae": 0.04586007886966217,
+      "persistence_mae": 3.8089033832790444,
+      "mean_gru_minus_persistence_mae": -0.4187924968512486,
+      "seeds_gru_beats_persistence": 5,
+      "minimum_difference": -0.4690764071661242,
+      "maximum_difference": -0.3464769435396309,
+      "difference_sign_changes_across_seeds": false,
+      "highly_seed_sensitive": false
+    },
+    {
+      "case_id": 97,
+      "mean_gru_mae": 2.4529614886792452,
+      "standard_deviation_gru_mae": 0.06424222006797346,
+      "persistence_mae": 2.5229317460087084,
+      "mean_gru_minus_persistence_mae": -0.06997025732946324,
+      "seeds_gru_beats_persistence": 4,
+      "minimum_difference": -0.13068121407837463,
+      "maximum_difference": 0.03798089767779356,
+      "difference_sign_changes_across_seeds": true,
+      "highly_seed_sensitive": true
+    },
+    {
+      "case_id": 113,
+      "mean_gru_mae": 2.9001362028602076,
+      "standard_deviation_gru_mae": 0.03278277346415533,
+      "persistence_mae": 3.2142295269932077,
+      "mean_gru_minus_persistence_mae": -0.31409332413300045,
+      "seeds_gru_beats_persistence": 5,
+      "minimum_difference": -0.35557910868788056,
+      "maximum_difference": -0.27580097318555685,
+      "difference_sign_changes_across_seeds": false,
+      "highly_seed_sensitive": false
+    },
+    {
+      "case_id": 134,
+      "mean_gru_mae": 4.319579512820512,
+      "standard_deviation_gru_mae": 0.08083791060165534,
+      "persistence_mae": 4.676709431623932,
+      "mean_gru_minus_persistence_mae": -0.35712991880341943,
+      "seeds_gru_beats_persistence": 5,
+      "minimum_difference": -0.43161044871794996,
+      "maximum_difference": -0.2334318333333334,
+      "difference_sign_changes_across_seeds": false,
+      "highly_seed_sensitive": false
+    },
+    {
+      "case_id": 136,
+      "mean_gru_mae": 3.395125506986028,
+      "standard_deviation_gru_mae": 0.02546882014496073,
+      "persistence_mae": 3.7309380748502994,
+      "mean_gru_minus_persistence_mae": -0.3358125678642711,
+      "seeds_gru_beats_persistence": 5,
+      "minimum_difference": -0.3785056856287423,
+      "maximum_difference": -0.31072438023952076,
+      "difference_sign_changes_across_seeds": false,
+      "highly_seed_sensitive": false
+    },
+    {
+      "case_id": 137,
+      "mean_gru_mae": 2.8414610432809773,
+      "standard_deviation_gru_mae": 0.03427233679092532,
+      "persistence_mae": 2.814746966841187,
+      "mean_gru_minus_persistence_mae": 0.02671407643979027,
+      "seeds_gru_beats_persistence": 2,
+      "minimum_difference": -0.007477762652705167,
+      "maximum_difference": 0.06700358813263518,
+      "difference_sign_changes_across_seeds": true,
+      "highly_seed_sensitive": true
+    },
+    {
+      "case_id": 154,
+      "mean_gru_mae": 3.053456463269962,
+      "standard_deviation_gru_mae": 0.10742239753448041,
+      "persistence_mae": 2.836768107984791,
+      "mean_gru_minus_persistence_mae": 0.21668835528517097,
+      "seeds_gru_beats_persistence": 0,
+      "minimum_difference": 0.08286187452471472,
+      "maximum_difference": 0.33764513155893505,
+      "difference_sign_changes_across_seeds": false,
+      "highly_seed_sensitive": false
+    }
+  ],
+  "patient_level_bootstrap": {
+    "patient_count": 15,
+    "bootstrap_replicates": 20000,
+    "bootstrap_seed": 20260714,
+    "point_estimate": -0.1926380770665435,
+    "percentile_95_ci_lower": -0.2908906700031437,
+    "percentile_95_ci_upper": -0.08865718793872464,
+    "resampling_unit": "patient",
+    "interpretation": "uncertainty estimate, not proof of clinical superiority"
+  },
+  "high_bis_diagnostic": {
+    "seeds_high_bis_mae_better_than_persistence": 0,
+    "high_bis_mae_difference": {
+      "count": 5,
+      "mean": 0.23922135252435767,
+      "standard_deviation": 0.13028914666258518,
+      "minimum": 0.11544564127546497,
+      "maximum": 0.45628909388839656
+    },
+    "seeds_high_bis_auprc_better_than_persistence": 5,
+    "high_bis_auprc_difference": {
+      "count": 5,
+      "mean": 0.03391951505408566,
+      "standard_deviation": 0.002301565486731559,
+      "minimum": 0.03028709376187999,
+      "maximum": 0.036687418379451775
+    },
+    "per_seed_subset_means_and_bias": [
+      {
+        "seed": 7,
+        "observed_mean": 68.93414528875111,
+        "predicted_mean": 66.20326624269264,
+        "prediction_bias_predicted_minus_observed": -2.730879046058459
+      },
+      {
+        "seed": 21,
+        "observed_mean": 68.93414528875111,
+        "predicted_mean": 66.30018756244465,
+        "prediction_bias_predicted_minus_observed": -2.6339577263064657
+      },
+      {
+        "seed": 42,
+        "observed_mean": 68.93414528875111,
+        "predicted_mean": 66.05614006997342,
+        "prediction_bias_predicted_minus_observed": -2.8780052187776795
+      },
+      {
+        "seed": 84,
+        "observed_mean": 68.93414528875111,
+        "predicted_mean": 66.48898029052259,
+        "prediction_bias_predicted_minus_observed": -2.4451649982285213
+      },
+      {
+        "seed": 123,
+        "observed_mean": 68.93414528875111,
+        "predicted_mean": 66.16648616031887,
+        "prediction_bias_predicted_minus_observed": -2.767659128432241
+      }
+    ],
+    "prediction_bias_predicted_minus_observed": {
+      "count": 5,
+      "mean": -2.6911332235606733,
+      "standard_deviation": 0.16288530664100484,
+      "minimum": -2.8780052187776795,
+      "maximum": -2.4451649982285213
+    },
+    "observed_bis_mean": {
+      "count": 5,
+      "mean": 68.93414528875111,
+      "standard_deviation": 0.0,
+      "minimum": 68.93414528875111,
+      "maximum": 68.93414528875111
+    },
+    "predicted_bis_mean": {
+      "count": 5,
+      "mean": 66.24301206519043,
+      "standard_deviation": 0.16288530664100895,
+      "minimum": 66.05614006997342,
+      "maximum": 66.48898029052259
+    },
+    "systematically_underpredicted": true
+  },
+  "missing_remifentanil_test_cases": {
+    "97": {
+      "per_seed": [
+        {
+          "seed": 7,
+          "gru_mae": 2.4243853954173438,
+          "persistence_mae": 2.5229317341420154,
+          "gru_minus_persistence_mae": -0.09854633872467167,
+          "prediction_mean": 39.84867760449927,
+          "prediction_standard_deviation": 8.384274363672182
+        },
+        {
+          "seed": 21,
+          "gru_mae": 2.4341898096157477,
+          "persistence_mae": 2.5229317341420154,
+          "gru_minus_persistence_mae": -0.08874192452626772,
+          "prediction_mean": 40.12882988243832,
+          "prediction_standard_deviation": 8.341786807278954
+        },
+        {
+          "seed": 42,
+          "gru_mae": 2.3922505286907114,
+          "persistence_mae": 2.5229317341420154,
+          "gru_minus_persistence_mae": -0.13068120545130402,
+          "prediction_mean": 40.31360012554427,
+          "prediction_standard_deviation": 8.177835988225569
+        },
+        {
+          "seed": 84,
+          "gru_mae": 2.4530689882637153,
+          "persistence_mae": 2.5229317341420154,
+          "gru_minus_persistence_mae": -0.0698627458783001,
+          "prediction_mean": 40.19422878519593,
+          "prediction_standard_deviation": 8.42162338907103
+        },
+        {
+          "seed": 123,
+          "gru_mae": 2.5609126153769233,
+          "persistence_mae": 2.5229317341420154,
+          "gru_minus_persistence_mae": 0.03798088123490784,
+          "prediction_mean": 39.94200347677794,
+          "prediction_standard_deviation": 8.378435470364126
+        }
+      ],
+      "gru_mae": {
+        "count": 5,
+        "mean": 2.452961467472888,
+        "standard_deviation": 0.06424221161970092,
+        "minimum": 2.3922505286907114,
+        "maximum": 2.5609126153769233
+      },
+      "persistence_mae": 2.5229317341420154,
+      "gru_minus_persistence_mae": {
+        "count": 5,
+        "mean": -0.06997026666912713,
+        "standard_deviation": 0.06424221161970092,
+        "minimum": -0.13068120545130402,
+        "maximum": 0.03798088123490784
+      },
+      "seeds_gru_improves": 4,
+      "prediction_mean_across_seeds": {
+        "count": 5,
+        "mean": 40.08546797489114,
+        "standard_deviation": 0.18868306016644482,
+        "minimum": 39.84867760449927,
+        "maximum": 40.31360012554427
+      },
+      "pooled_prediction_standard_deviation": 8.342934637415304,
+      "remifentanil_masks_zero_for_every_seed": true,
+      "all_predictions_finite_for_every_seed": true
+    },
+    "154": {
+      "per_seed": [
+        {
+          "seed": 7,
+          "gru_mae": 3.0738319954243347,
+          "persistence_mae": 2.8367681690994595,
+          "gru_minus_persistence_mae": 0.23706382632487522,
+          "prediction_mean": 40.60232550722433,
+          "prediction_standard_deviation": 12.024788775262172
+        },
+        {
+          "seed": 21,
+          "gru_mae": 2.9685405250285934,
+          "persistence_mae": 2.8367681690994595,
+          "gru_minus_persistence_mae": 0.13177235592913394,
+          "prediction_mean": 41.33632829961977,
+          "prediction_standard_deviation": 11.661799004077695
+        },
+        {
+          "seed": 42,
+          "gru_mae": 2.919630034207681,
+          "persistence_mae": 2.8367681690994595,
+          "gru_minus_persistence_mae": 0.08286186510822136,
+          "prediction_mean": 40.56403198555133,
+          "prediction_standard_deviation": 12.04224289370127
+        },
+        {
+          "seed": 84,
+          "gru_mae": 3.174413264834372,
+          "persistence_mae": 2.8367681690994595,
+          "gru_minus_persistence_mae": 0.33764509573491264,
+          "prediction_mean": 41.507956015209125,
+          "prediction_standard_deviation": 12.261591948720696
+        },
+        {
+          "seed": 123,
+          "gru_mae": 3.130866636923673,
+          "persistence_mae": 2.8367681690994595,
+          "gru_minus_persistence_mae": 0.29409846782421356,
+          "prediction_mean": 40.92273406007604,
+          "prediction_standard_deviation": 12.276545961078865
+        }
+      ],
+      "gru_mae": {
+        "count": 5,
+        "mean": 3.053456491283731,
+        "standard_deviation": 0.10742238456594304,
+        "minimum": 2.919630034207681,
+        "maximum": 3.174413264834372
+      },
+      "persistence_mae": 2.8367681690994595,
+      "gru_minus_persistence_mae": {
+        "count": 5,
+        "mean": 0.21668832218427134,
+        "standard_deviation": 0.10742238456594304,
+        "minimum": 0.08286186510822136,
+        "maximum": 0.33764509573491264
+      },
+      "seeds_gru_improves": 0,
+      "prediction_mean_across_seeds": {
+        "count": 5,
+        "mean": 40.98667517353611,
+        "standard_deviation": 0.425567685806216,
+        "minimum": 40.56403198555133,
+        "maximum": 41.507956015209125
+      },
+      "pooled_prediction_standard_deviation": 12.061454010891898,
+      "remifentanil_masks_zero_for_every_seed": true,
+      "all_predictions_finite_for_every_seed": true
+    }
+  },
+  "result_classification": {
+    "category": "SMALL BUT CONSISTENT IMPROVEMENT",
+    "description": "Mean improvement is below 0.2 BIS points but recurs across seeds and patients.",
+    "mean_test_patient_mae_difference_gru_minus_persistence": -0.19263807706654337,
+    "seeds_gru_improves_patient_mean_mae": 5,
+    "patients_seed_averaged_gru_improves": 12,
+    "operational_description_not_statistical_significance": true,
+    "test_results_not_used_for_tuning": true
+  }
+}
