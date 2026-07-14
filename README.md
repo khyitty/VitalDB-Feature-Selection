@@ -91,3 +91,14 @@ python scripts/aggregate_multiseed_gru.py --outputs-dir outputs/baselines --data
 The aggregation command validates all required artifacts and row alignment before it
 writes the seed summary, persistence comparison, and patient-by-seed table under
 `outputs/baselines/gru`.
+
+Run the explicit factorized feature/temporal-attention GRU smoke pipeline on CPU:
+
+```powershell
+python scripts/run_attention.py --dataset-dir data/modeling/full --smoke --seed 42
+```
+
+Smoke mode trains on at most four training cases and evaluates at most three validation
+cases for no more than two epochs. It writes aligned validation attention arrays under
+`outputs/attention/factorized_gru/smoke_seed_42`; these smoke attention values are for
+pipeline validation only and are not scientific feature rankings.
