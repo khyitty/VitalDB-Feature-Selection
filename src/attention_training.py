@@ -6,6 +6,7 @@ import logging
 import platform
 from dataclasses import dataclass
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 import numpy as np
@@ -65,6 +66,16 @@ class AttentionBundle:
     temporal_normalization_max_error: float
     combined_normalization_max_error: float
     maximum_missing_feature_weight: float
+
+
+@dataclass(frozen=True)
+class JointEvaluationTiming:
+    """Timing for a single pass that collects predictions and attention."""
+
+    total_seconds: float
+    shared_model_forward_seconds: float
+    prediction_collection_seconds: float
+    attention_collection_seconds: float
 
 
 def _fresh_attention_model(
@@ -147,6 +158,106 @@ def extract_attention(
     )
 
 
+@torch.no_grad()
+def predict_and_extract_attention(
+    model: FactorizedAttentionGRU,
+    loader: DataLoader[dict[str, torch.Tensor]],
+    criterion: nn.Module,
+    device: torch.device,
+) -> tuple[PredictionBundle, AttentionBundle, JointEvaluationTiming]:
+    """Collect predictions and attention together without a repeated loader pass."""
+
+    model.eval()
+    started = perf_counter()
+    forward_seconds = 0.0
+    prediction_collection_seconds = 0.0
+    attention_collection_seconds = 0.0
+    predicted: list[np.ndarray] = []
+    observed: list[np.ndarray] = []
+    sample_indices: list[np.ndarray] = []
+    case_ids: list[np.ndarray] = []
+    target_timestamps: list[np.ndarray] = []
+    feature_weights: list[np.ndarray] = []
+    temporal_weights: list[np.ndarray] = []
+    combined_weights: list[np.ndarray] = []
+    masks: list[np.ndarray] = []
+    total_loss = 0.0
+    total_samples = 0
+    for batch in loader:
+        X_dynamic, X_static, mask = _move_attention_inputs(batch, device)
+        target = batch["y_bis"].to(device=device, dtype=torch.float32)
+        forward_started = perf_counter()
+        output = model(X_dynamic, X_static, mask, return_attention=True)
+        forward_seconds += perf_counter() - forward_started
+        if not isinstance(output, FactorizedAttentionOutput):
+            raise TypeError("Attention model did not return FactorizedAttentionOutput.")
+
+        prediction_started = perf_counter()
+        loss = criterion(output.prediction, target)
+        predicted.append(output.prediction.detach().cpu().numpy())
+        observed.append(target.detach().cpu().numpy())
+        sample_indices.append(batch["sample_index"].numpy())
+        case_ids.append(batch["case_id"].numpy())
+        target_timestamps.append(batch["target_timestamp"].numpy())
+        total_loss += float(loss) * len(target)
+        total_samples += len(target)
+        prediction_collection_seconds += perf_counter() - prediction_started
+
+        attention_started = perf_counter()
+        feature_weights.append(output.feature_attention.detach().cpu().numpy())
+        temporal_weights.append(output.temporal_attention.detach().cpu().numpy())
+        combined_weights.append(output.combined_attention.detach().cpu().numpy())
+        masks.append(mask.detach().cpu().numpy().astype(bool, copy=False))
+        attention_collection_seconds += perf_counter() - attention_started
+
+    feature = np.concatenate(feature_weights)
+    temporal = np.concatenate(temporal_weights)
+    combined = np.concatenate(combined_weights)
+    observed_mask = np.concatenate(masks)
+    prediction_bundle = PredictionBundle(
+        y_true=np.concatenate(observed),
+        y_pred=np.concatenate(predicted),
+        case_ids=np.concatenate(case_ids).astype(np.int64),
+        target_timestamps=np.concatenate(target_timestamps).astype(np.int64),
+        sample_indices=np.concatenate(sample_indices).astype(np.int64),
+        mean_loss=total_loss / total_samples,
+    )
+    attention_bundle = AttentionBundle(
+        sample_indices=prediction_bundle.sample_indices,
+        case_ids=prediction_bundle.case_ids,
+        feature_attention=feature,
+        temporal_attention=temporal,
+        combined_attention=combined,
+        feature_normalization_max_error=float(
+            np.max(np.abs(feature.sum(axis=2) - 1.0))
+        ),
+        temporal_normalization_max_error=float(
+            np.max(np.abs(temporal.sum(axis=1) - 1.0))
+        ),
+        combined_normalization_max_error=float(
+            np.max(np.abs(combined.sum(axis=(1, 2)) - 1.0))
+        ),
+        maximum_missing_feature_weight=float(
+            np.max(np.abs(feature[~observed_mask]), initial=0.0)
+        ),
+    )
+    arrays = (
+        prediction_bundle.y_pred,
+        feature,
+        temporal,
+        combined,
+    )
+    if not all(np.isfinite(array).all() for array in arrays):
+        raise FloatingPointError("Joint prediction/attention output is not finite.")
+    timing = JointEvaluationTiming(
+        total_seconds=perf_counter() - started,
+        shared_model_forward_seconds=forward_seconds,
+        prediction_collection_seconds=prediction_collection_seconds,
+        attention_collection_seconds=attention_collection_seconds,
+    )
+    return prediction_bundle, attention_bundle, timing
+
+
 def _verify_attention_checkpoint_reload(
     model: FactorizedAttentionGRU,
     checkpoint_path: Path,
@@ -182,19 +293,42 @@ def _verify_attention_checkpoint_reload(
 
 def _attention_metadata(
     dataset: VitalBISDataset,
-    bundle: AttentionBundle,
+    bundles: dict[str, AttentionBundle],
     best_epoch: int,
     reload_attention_identical: bool,
+    runtime_breakdown: dict[str, Any],
 ) -> dict[str, Any]:
     history_steps = int(dataset.dataset_metadata["history_steps"])
     interval = int(dataset.dataset_metadata["resampling_interval_seconds"])
     time_lags = [-(history_steps - 1 - index) * interval for index in range(history_steps)]
+    split_metadata = {
+        split: {
+            "feature_attention_shape": list(bundle.feature_attention.shape),
+            "temporal_attention_shape": list(bundle.temporal_attention.shape),
+            "combined_attention_shape": list(bundle.combined_attention.shape),
+            "feature_attention_normalization_max_absolute_error": (
+                bundle.feature_normalization_max_error
+            ),
+            "temporal_attention_normalization_max_absolute_error": (
+                bundle.temporal_normalization_max_error
+            ),
+            "combined_attention_normalization_max_absolute_error": (
+                bundle.combined_normalization_max_error
+            ),
+            "maximum_missing_feature_attention_weight": (
+                bundle.maximum_missing_feature_weight
+            ),
+            "all_attention_values_finite": True,
+        }
+        for split, bundle in bundles.items()
+    }
+    validation = split_metadata["val"]
     return {
         "dynamic_feature_names": list(dataset.dynamic_feature_names),
         "time_lags_seconds": time_lags,
-        "feature_attention_shape": list(bundle.feature_attention.shape),
-        "temporal_attention_shape": list(bundle.temporal_attention.shape),
-        "combined_attention_shape": list(bundle.combined_attention.shape),
+        "feature_attention_shape": validation["feature_attention_shape"],
+        "temporal_attention_shape": validation["temporal_attention_shape"],
+        "combined_attention_shape": validation["combined_attention_shape"],
         "feature_attention_normalization_dimension": "P, dynamic features (axis 2)",
         "temporal_attention_normalization_dimension": "L, historical time (axis 1)",
         "combined_attention_definition": (
@@ -206,24 +340,28 @@ def _attention_metadata(
         "model_checkpoint_identifier": f"best_model.pt:epoch_{best_epoch}",
         "checkpoint_reload_attention_identical": reload_attention_identical,
         "feature_attention_normalization_max_absolute_error": (
-            bundle.feature_normalization_max_error
+            validation["feature_attention_normalization_max_absolute_error"]
         ),
         "temporal_attention_normalization_max_absolute_error": (
-            bundle.temporal_normalization_max_error
+            validation["temporal_attention_normalization_max_absolute_error"]
         ),
         "combined_attention_normalization_max_absolute_error": (
-            bundle.combined_normalization_max_error
+            validation["combined_attention_normalization_max_absolute_error"]
         ),
         "maximum_missing_feature_attention_weight": (
-            bundle.maximum_missing_feature_weight
+            validation["maximum_missing_feature_attention_weight"]
         ),
         "all_attention_values_finite": True,
+        "splits": split_metadata,
+        "runtime_breakdown": runtime_breakdown,
     }
 
 
-def _save_attention_bundle(bundle: AttentionBundle, output_dir: Path) -> None:
+def _save_attention_bundle(
+    bundle: AttentionBundle, output_dir: Path, split: str
+) -> None:
     np.savez_compressed(
-        output_dir / "val_attention.npz",
+        output_dir / f"{split}_attention.npz",
         sample_index=bundle.sample_indices,
         case_id=bundle.case_ids,
         feature_attention=bundle.feature_attention,
@@ -235,6 +373,9 @@ def _save_attention_bundle(bundle: AttentionBundle, output_dir: Path) -> None:
 def run_attention_training(config: AttentionTrainingConfig) -> dict[str, Any]:
     """Train, select, reload, evaluate, and extract explicit attention outputs."""
 
+    run_started = perf_counter()
+    checkpoint_save_seconds = 0.0
+    serialization_seconds = 0.0
     set_deterministic_seed(config.seed)
     device = torch.device("cpu") if config.smoke else resolve_device(config.device)
     config.output_dir.mkdir(parents=True, exist_ok=True)
@@ -303,13 +444,16 @@ def run_attention_training(config: AttentionTrainingConfig) -> dict[str, Any]:
         },
         "git_commit_hash": _git_commit_hash(),
     }
+    serialization_started = perf_counter()
     _save_json(resolved_config, config.output_dir / "config.json")
+    serialization_seconds += perf_counter() - serialization_started
 
     epochs_without_improvement = 0
     best_path = config.output_dir / "best_model.pt"
     last_path = config.output_dir / "last_model.pt"
     max_epochs = min(config.max_epochs, 2) if config.smoke else config.max_epochs
     for epoch in range(start_epoch, max_epochs + 1):
+        training_started = perf_counter()
         train_loss = train_epoch(
             model,
             train_loader,
@@ -318,41 +462,54 @@ def run_attention_training(config: AttentionTrainingConfig) -> dict[str, Any]:
             device,
             config.gradient_clip_norm,
         )
+        training_seconds = perf_counter() - training_started
+        validation_started = perf_counter()
         val_bundle = predict_model(model, val_loader, criterion, device)
         patient = patient_level_evaluation(
             val_bundle.y_true, val_bundle.y_pred, val_bundle.case_ids
         )
         validation_patient_mae = float(patient.summary["mae"]["mean"])
+        validation_regression = regression_metrics(
+            val_bundle.y_true, val_bundle.y_pred
+        )
+        validation_seconds = perf_counter() - validation_started
         history.append(
             {
                 "epoch": epoch,
                 "train_loss": train_loss,
                 "validation_loss": val_bundle.mean_loss,
-                "validation_pooled_mae": float(
-                    regression_metrics(val_bundle.y_true, val_bundle.y_pred)["mae"]
-                ),
+                "validation_pooled_mae": float(validation_regression["mae"]),
+                "validation_rmse": float(validation_regression["rmse"]),
                 "validation_patient_level_mae": validation_patient_mae,
+                "training_time_seconds": training_seconds,
+                "validation_evaluation_time_seconds": validation_seconds,
                 "learning_rate": optimizer.param_groups[0]["lr"],
             }
         )
         if validation_patient_mae < best_patient_mae:
             best_patient_mae = validation_patient_mae
             epochs_without_improvement = 0
+            checkpoint_started = perf_counter()
             torch.save(
                 _checkpoint_payload(
                     model, optimizer, epoch, best_patient_mae, history, config
                 ),
                 best_path,
             )
+            checkpoint_save_seconds += perf_counter() - checkpoint_started
         else:
             epochs_without_improvement += 1
+        checkpoint_started = perf_counter()
         torch.save(
             _checkpoint_payload(model, optimizer, epoch, best_patient_mae, history, config),
             last_path,
         )
+        checkpoint_save_seconds += perf_counter() - checkpoint_started
+        serialization_started = perf_counter()
         pd.DataFrame(history).to_csv(
             config.output_dir / "training_history.csv", index=False
         )
+        serialization_seconds += perf_counter() - serialization_started
         LOGGER.info(
             "epoch=%d train_loss=%.4f val_loss=%.4f val_patient_mae=%.4f",
             epoch,
@@ -366,6 +523,7 @@ def run_attention_training(config: AttentionTrainingConfig) -> dict[str, Any]:
 
     if not best_path.exists():
         raise RuntimeError("Training completed without creating a best checkpoint.")
+    checkpoint_load_started = perf_counter()
     checkpoint = _load_checkpoint(best_path, model, optimizer=None, device=device)
     best_epoch = int(checkpoint["epoch"])
     reloaded, prediction_identical, attention_identical = (
@@ -373,31 +531,108 @@ def run_attention_training(config: AttentionTrainingConfig) -> dict[str, Any]:
             model, best_path, val_loader, config, train_dataset, device
         )
     )
+    checkpoint_load_seconds = perf_counter() - checkpoint_load_started
     if not prediction_identical or not attention_identical:
         raise AssertionError("Reloaded checkpoint predictions or attention differ.")
 
-    val_bundle: PredictionBundle = predict_model(reloaded, val_loader, criterion, device)
+    val_bundle, val_attention, val_joint_timing = predict_and_extract_attention(
+        reloaded, val_loader, criterion, device
+    )
     thresholds = select_validation_thresholds(val_bundle.y_true, val_bundle.y_pred)
     val_metrics, val_case_metrics = evaluate_bundle(val_bundle, thresholds)
     val_metrics["checkpoint_reload_predictions_identical"] = prediction_identical
     val_metrics["checkpoint_reload_attention_identical"] = attention_identical
     val_metrics["model_parameter_count"] = parameter_count
+    serialization_started = perf_counter()
     prediction_frame(val_bundle).to_csv(
         config.output_dir / "val_predictions.csv", index=False
     )
     val_case_metrics.insert(0, "split", "val")
     val_case_metrics.to_csv(config.output_dir / "case_metrics.csv", index=False)
     _save_json(val_metrics, config.output_dir / "val_metrics.json")
+    _save_attention_bundle(val_attention, config.output_dir, "val")
+    serialization_seconds += perf_counter() - serialization_started
+    attention_bundles = {"val": val_attention}
+    joint_timings = {"val": val_joint_timing}
+    test_metrics: dict[str, Any] | None = None
 
-    attention = extract_attention(reloaded, val_loader, device)
-    if not np.array_equal(attention.sample_indices, val_bundle.sample_indices):
-        raise AssertionError("Attention rows do not align with validation predictions.")
-    if not np.array_equal(attention.case_ids, val_bundle.case_ids):
-        raise AssertionError("Attention case IDs do not align with validation predictions.")
-    _save_attention_bundle(attention, config.output_dir)
+    if not config.smoke:
+        test_dataset = VitalBISDataset(config.dataset_dir, "test")
+        test_indices = _selected_indices(test_dataset, None)
+        test_loader = make_data_loader(
+            test_dataset,
+            test_indices,
+            config.batch_size,
+            config.seed,
+            training=False,
+            case_balanced=False,
+            num_workers=config.num_workers,
+        )
+        test_bundle, test_attention, test_joint_timing = predict_and_extract_attention(
+            reloaded, test_loader, criterion, device
+        )
+        test_metrics, test_case_metrics = evaluate_bundle(test_bundle, thresholds)
+        test_metrics["checkpoint_reload_predictions_identical"] = prediction_identical
+        test_metrics["checkpoint_reload_attention_identical"] = attention_identical
+        test_metrics["model_parameter_count"] = parameter_count
+        serialization_started = perf_counter()
+        prediction_frame(test_bundle).to_csv(
+            config.output_dir / "test_predictions.csv", index=False
+        )
+        _save_attention_bundle(test_attention, config.output_dir, "test")
+        test_case_metrics.insert(0, "split", "test")
+        pd.concat((val_case_metrics, test_case_metrics), ignore_index=True).to_csv(
+            config.output_dir / "case_metrics.csv", index=False
+        )
+        _save_json(test_metrics, config.output_dir / "test_metrics.json")
+        serialization_seconds += perf_counter() - serialization_started
+        attention_bundles["test"] = test_attention
+        joint_timings["test"] = test_joint_timing
+
+    completed_epochs = len(history)
+    runtime_breakdown = {
+        "total_internal_runtime_seconds": perf_counter() - run_started,
+        "completed_epochs": completed_epochs,
+        "training_time_seconds": float(
+            sum(float(row["training_time_seconds"]) for row in history)
+        ),
+        "mean_training_time_per_completed_epoch_seconds": float(
+            np.mean([float(row["training_time_seconds"]) for row in history])
+        ),
+        "validation_evaluation_time_per_epoch_seconds": [
+            float(row["validation_evaluation_time_seconds"]) for row in history
+        ],
+        "mean_validation_evaluation_time_per_epoch_seconds": float(
+            np.mean(
+                [float(row["validation_evaluation_time_seconds"]) for row in history]
+            )
+        ),
+        "checkpoint_save_time_seconds": checkpoint_save_seconds,
+        "checkpoint_load_and_reload_verification_time_seconds": (
+            checkpoint_load_seconds
+        ),
+        "serialization_time_seconds": serialization_seconds,
+        "final_joint_prediction_attention_passes": {
+            split: {
+                "total_seconds": timing.total_seconds,
+                "shared_model_forward_seconds": timing.shared_model_forward_seconds,
+                "prediction_collection_seconds": timing.prediction_collection_seconds,
+                "attention_collection_seconds": timing.attention_collection_seconds,
+            }
+            for split, timing in joint_timings.items()
+        },
+        "repeated_final_dataset_pass_avoided": True,
+        "peak_memory": None,
+        "peak_memory_note": "not measured; no memory profiler was added",
+    }
     attention_metadata = _attention_metadata(
-        val_dataset, attention, best_epoch, attention_identical
+        val_dataset,
+        attention_bundles,
+        best_epoch,
+        attention_identical,
+        runtime_breakdown,
     )
+    runtime_breakdown["total_internal_runtime_seconds"] = perf_counter() - run_started
     _save_json(attention_metadata, config.output_dir / "attention_metadata.json")
 
     result: dict[str, Any] = {
@@ -417,40 +652,16 @@ def run_attention_training(config: AttentionTrainingConfig) -> dict[str, Any]:
             len(val_dataset.dynamic_feature_names),
         ],
         "attention_shapes": {
-            "feature_attention": list(attention.feature_attention.shape),
-            "temporal_attention": list(attention.temporal_attention.shape),
-            "combined_attention": list(attention.combined_attention.shape),
+            "feature_attention": list(val_attention.feature_attention.shape),
+            "temporal_attention": list(val_attention.temporal_attention.shape),
+            "combined_attention": list(val_attention.combined_attention.shape),
         },
         "checkpoint_reload_predictions_identical": prediction_identical,
         "checkpoint_reload_attention_identical": attention_identical,
         "attention_validation": attention_metadata,
+        "runtime_breakdown": runtime_breakdown,
         "validation_metrics": val_metrics,
     }
-
-    if not config.smoke:
-        test_dataset = VitalBISDataset(config.dataset_dir, "test")
-        test_indices = _selected_indices(test_dataset, None)
-        test_loader = make_data_loader(
-            test_dataset,
-            test_indices,
-            config.batch_size,
-            config.seed,
-            training=False,
-            case_balanced=False,
-            num_workers=config.num_workers,
-        )
-        test_bundle = predict_model(reloaded, test_loader, criterion, device)
-        test_metrics, test_case_metrics = evaluate_bundle(test_bundle, thresholds)
-        test_metrics["checkpoint_reload_predictions_identical"] = prediction_identical
-        test_metrics["checkpoint_reload_attention_identical"] = attention_identical
-        test_metrics["model_parameter_count"] = parameter_count
-        prediction_frame(test_bundle).to_csv(
-            config.output_dir / "test_predictions.csv", index=False
-        )
-        test_case_metrics.insert(0, "split", "test")
-        pd.concat((val_case_metrics, test_case_metrics), ignore_index=True).to_csv(
-            config.output_dir / "case_metrics.csv", index=False
-        )
-        _save_json(test_metrics, config.output_dir / "test_metrics.json")
+    if test_metrics is not None:
         result["test_metrics"] = test_metrics
     return result

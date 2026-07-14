@@ -102,3 +102,19 @@ Smoke mode trains on at most four training cases and evaluates at most three val
 cases for no more than two epochs. It writes aligned validation attention arrays under
 `outputs/attention/factorized_gru/smoke_seed_42`; these smoke attention values are for
 pipeline validation only and are not scientific feature rankings.
+
+Run one complete seed-42 factorized-attention experiment with the fixed baseline
+training settings:
+
+```powershell
+python scripts/run_attention.py --dataset-dir data/modeling/full --seed 42 --max-epochs 50 --patience 8 --batch-size 256 --device auto
+```
+
+After the run, create aligned baseline comparisons and diagnostic attention summaries:
+
+```powershell
+python scripts/audit_attention_run.py --run-dir outputs/attention/factorized_gru/seed_42 --dataset-dir data/modeling/full --baselines-dir outputs/baselines --command-wall-seconds <measured-seconds>
+```
+
+The audit uses equal case weighting and labels all figures as single-seed diagnostics.
+It does not create selected-feature or top-k artifacts.

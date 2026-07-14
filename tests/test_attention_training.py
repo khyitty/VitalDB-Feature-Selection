@@ -5,8 +5,17 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import torch
+from torch import nn
+from torch.utils.data import DataLoader
 
-from src.attention_training import AttentionTrainingConfig, run_attention_training
+from src.attention_training import (
+    AttentionTrainingConfig,
+    predict_and_extract_attention,
+    run_attention_training,
+)
+from src.datasets import VitalBISDataset
+from src.models.attention import FactorizedAttentionGRU
 
 
 def test_attention_smoke_pipeline_saves_aligned_outputs(
@@ -73,3 +82,30 @@ def test_attention_smoke_pipeline_saves_aligned_outputs(
     assert attention_metadata["time_lags_seconds"] == [-50, -40, -30, -20, -10, 0]
     assert attention_metadata["maximum_missing_feature_attention_weight"] == 0.0
     assert attention_metadata["all_attention_values_finite"]
+    assert attention_metadata["runtime_breakdown"][
+        "repeated_final_dataset_pass_avoided"
+    ]
+
+
+def test_joint_evaluation_calls_attention_model_once_per_batch(
+    synthetic_modeling_dir: Path,
+) -> None:
+    class CountingAttentionGRU(FactorizedAttentionGRU):
+        call_count = 0
+
+        def forward(self, *args: torch.Tensor, **kwargs: bool):  # type: ignore[no-untyped-def]
+            self.call_count += 1
+            return super().forward(*args, **kwargs)
+
+    dataset = VitalBISDataset(synthetic_modeling_dir, "val")
+    loader = DataLoader(dataset, batch_size=4, shuffle=False)
+    model = CountingAttentionGRU(18, 6, hidden_size=8)
+
+    predictions, attention, _ = predict_and_extract_attention(
+        model, loader, nn.HuberLoss(), torch.device("cpu")
+    )
+
+    assert model.call_count == len(loader)
+    assert len(predictions.y_pred) == len(dataset)
+    assert len(attention.sample_indices) == len(dataset)
+    assert np.array_equal(predictions.sample_indices, attention.sample_indices)
