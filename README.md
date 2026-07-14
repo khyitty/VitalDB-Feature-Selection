@@ -49,3 +49,29 @@ python scripts/audit_prediction_dataset.py --dataset-dir data/modeling/full
 
 The audit writes `full_dataset_audit.json` and `case_level_target_summary.csv` in the
 full dataset directory.
+
+## Baselines
+
+Evaluate the latest-observed-BIS persistence baseline:
+
+```powershell
+python scripts/run_baselines.py persistence --dataset-dir data/modeling/full
+```
+
+Run the complete GRU pipeline on a small case subset for at most two epochs:
+
+```powershell
+python scripts/run_baselines.py gru --dataset-dir data/modeling/full --smoke --seed 42
+```
+
+Run the future full non-attention GRU experiment:
+
+```powershell
+python scripts/run_baselines.py gru --dataset-dir data/modeling/full --seed 42 --max-epochs 50 --patience 8 --batch-size 256 --device auto
+```
+
+GRU training uses case-balanced sampling by default. Pass
+`--uniform-window-sampling` for an ordinary window-uniform comparison. Persistence
+outputs are written under `outputs/baselines/persistence`; smoke and full GRU runs use
+separate `outputs/baselines/gru/smoke_seed_42` and `outputs/baselines/gru/seed_42`
+directories.

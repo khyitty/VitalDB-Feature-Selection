@@ -4,3 +4,4 @@ __pycache__/
 data/raw/vitaldb_raw_*cases.csv
 data/processed/vitaldb_clean_*cases.csv
 data/modeling/
+outputs/

@@ -4,3 +4,5 @@ numpy
 matplotlib
 tqdm
 pytest
+torch
+scikit-learn
