@@ -40,3 +40,12 @@ python -m pytest -q
 Pilot arrays are saved to `data/modeling/pilot/{train,val,test}.npz`; matching window
 metadata, split case lists, feature/preprocessing metadata, and the dataset report are
 saved in the same directory.
+
+Audit a completed full build without modifying its modeling arrays:
+
+```powershell
+python scripts/audit_prediction_dataset.py --dataset-dir data/modeling/full
+```
+
+The audit writes `full_dataset_audit.json` and `case_level_target_summary.csv` in the
+full dataset directory.
