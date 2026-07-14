@@ -1,0 +1,53 @@
+"""Command-line entry point for constructing future-BIS datasets."""
+
+from __future__ import annotations
+
+import argparse
+import logging
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.config import PipelineConfig  # noqa: E402
+from src.io import build_prediction_dataset  # noqa: E402
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse the mutually exclusive pilot/full build mode."""
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--pilot", action="store_true", help="Use the first 10 eligible cases.")
+    mode.add_argument("--full", action="store_true", help="Use all eligible cases.")
+    return parser.parse_args()
+
+
+def main() -> None:
+    """Build the selected dataset mode and print a compact summary."""
+
+    args = parse_args()
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    output_dir = Path("data/modeling/pilot" if args.pilot else "data/modeling/full")
+    config = PipelineConfig(output_dir=output_dir)
+    result = build_prediction_dataset(config, max_cases=10 if args.pilot else None)
+
+    print(f"Dynamic features ({len(result.dynamic_features)}): {', '.join(result.dynamic_features)}")
+    print(f"Static features ({len(result.static_features)}): {', '.join(result.static_features)}")
+    print(f"Case counts: {result.case_counts}")
+    print(f"Window counts: {result.window_counts}")
+    for split_name in ("train", "val", "test"):
+        print(f"{split_name} tensor shapes: {result.tensor_shapes[split_name]}")
+        rates = result.prevalence[split_name]
+        print(
+            f"{split_name} prevalence: BIS<40={rates['low_bis']:.4f}, "
+            f"BIS_40_to_60={rates['bis_40_to_60']:.4f}, "
+            f"BIS>60={rates['high_bis']:.4f}"
+        )
+    print(f"Outputs: {result.output_dir.resolve()}")
+
+
+if __name__ == "__main__":
+    main()
