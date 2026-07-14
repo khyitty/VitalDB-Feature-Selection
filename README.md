@@ -75,3 +75,9 @@ GRU training uses case-balanced sampling by default. Pass
 outputs are written under `outputs/baselines/persistence`; smoke and full GRU runs use
 separate `outputs/baselines/gru/smoke_seed_42` and `outputs/baselines/gru/seed_42`
 directories.
+
+After a completed full seed-42 run, create a row-matched persistence comparison with:
+
+```powershell
+python scripts/compare_baselines.py --outputs-dir outputs/baselines --dataset-dir data/modeling/full --seed 42 --training-runtime-seconds <measured-seconds>
+```
