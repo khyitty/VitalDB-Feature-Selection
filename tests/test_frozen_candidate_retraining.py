@@ -289,11 +289,11 @@ def test_retraining_notebook_is_locked_cuda_only_and_valid() -> None:
     ]
     source = "\n".join(code_cells)
     assert notebook["nbformat"] == 4
-    assert "RUN_FULL_TRAINING=False" in source
-    assert "CONFIRMATION_TEXT=''" in source
+    assert "RUN_FULL_TRAINING = False" in source
+    assert "CONFIRMATION_TEXT = ''" in source
     assert "RUN_20_FROZEN_CANDIDATE_CUDA_RUNS" in source
     assert "torch.cuda.is_available()" in source
-    assert "source_type']=='newly_trained'" in source
+    assert "source_type'] == 'newly_trained'" in source
     assert "test.npz" not in source
     assert "run_baselines.py" not in source
     assert "run_attention.py" not in source
