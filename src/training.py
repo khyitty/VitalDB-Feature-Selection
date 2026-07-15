@@ -66,6 +66,7 @@ class TrainingConfig:
     resume_checkpoint: Path | None = None
     dynamic_features: tuple[str, ...] | None = None
     exclude_dynamic_features: tuple[str, ...] = ()
+    evaluate_test: bool = True
 
 
 @dataclass(frozen=True)
@@ -522,6 +523,7 @@ def run_gru_training(config: TrainingConfig) -> dict[str, Any]:
     )
     set_deterministic_seed(config.seed)
     device = resolve_device(config.device)
+    evaluate_test = config.evaluate_test and not config.smoke
     config.output_dir.mkdir(parents=True, exist_ok=True)
     _write_run_status(config, device, "running")
     train_dataset = load_training_dataset(config, "train")
@@ -687,7 +689,7 @@ def run_gru_training(config: TrainingConfig) -> dict[str, Any]:
     test_tensor_shape: list[int] | None = None
     test_batch_count: int | None = None
     final_test_prediction_seconds: float | None = None
-    if not config.smoke:
+    if evaluate_test:
         test_dataset = load_training_dataset(config, "test")
         test_indices = _selected_indices(test_dataset, None)
         test_loader = make_data_loader(
@@ -767,7 +769,7 @@ def run_gru_training(config: TrainingConfig) -> dict[str, Any]:
         completed_epochs=len(history),
         best_epoch=best_epoch,
         checkpoint_reload_predictions_identical=reload_identical,
-        test_evaluated=not config.smoke,
+        test_evaluated=evaluate_test,
     )
     result: dict[str, Any] = {
         "output_dir": str(config.output_dir),

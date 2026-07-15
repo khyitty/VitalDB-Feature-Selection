@@ -97,6 +97,35 @@ def test_attention_smoke_pipeline_saves_aligned_outputs(
     assert runtime["sampler_samples_per_epoch"] == 8
 
 
+def test_full_attention_can_keep_test_split_sealed(
+    synthetic_modeling_dir: Path, tmp_path: Path
+) -> None:
+    output_dir = tmp_path / "validation-only-attention"
+    result = run_attention_training(
+        AttentionTrainingConfig(
+            dataset_dir=synthetic_modeling_dir,
+            output_dir=output_dir,
+            seed=42,
+            device="cpu",
+            batch_size=4,
+            max_epochs=1,
+            patience=1,
+            hidden_size=8,
+            prediction_hidden_size=4,
+            feature_token_embedding_dim=8,
+            static_context_dim=4,
+            evaluate_test=False,
+            exclude_dynamic_features=("bis_error",),
+        )
+    )
+
+    status = json.loads((output_dir / "run_status.json").read_text(encoding="utf-8"))
+    assert status["test_evaluated"] is False
+    assert "test_metrics" not in result
+    assert not (output_dir / "test_predictions.csv").exists()
+    assert not (output_dir / "test_attention.npz").exists()
+
+
 def test_joint_evaluation_calls_attention_model_once_per_batch(
     synthetic_modeling_dir: Path,
 ) -> None:

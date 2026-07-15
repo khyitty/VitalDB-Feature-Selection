@@ -47,13 +47,24 @@ def test_colab_dependencies_never_request_pytorch_replacement(tmp_path: Path) ->
 
 def test_training_clis_keep_explicit_colab_output_directories() -> None:
     gru = parse_baseline_args(
-        ["gru", "--output-dir", "/content/drive/MyDrive/project/outputs/gru"]
+        [
+            "gru",
+            "--output-dir",
+            "/content/drive/MyDrive/project/outputs/gru",
+            "--validation-only",
+        ]
     )
     attention = parse_attention_args(
-        ["--output-dir", "/content/drive/MyDrive/project/outputs/attention"]
+        [
+            "--output-dir",
+            "/content/drive/MyDrive/project/outputs/attention",
+            "--validation-only",
+        ]
     )
     assert gru.output_dir.parts[-2:] == ("outputs", "gru")
     assert attention.output_dir.parts[-2:] == ("outputs", "attention")
+    assert gru.validation_only is True
+    assert attention.validation_only is True
 
 
 def test_explicit_cuda_request_raises_instead_of_falling_back(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -162,6 +173,38 @@ def test_gru_smoke_is_validation_only_and_marks_complete(
     assert tuple(json.loads((output_dir / "config.json").read_text())["dynamic_feature_names"]) == REDUCED_FEATURES
 
 
+def test_full_gru_can_keep_test_split_sealed(
+    synthetic_modeling_dir: Path, tmp_path: Path
+) -> None:
+    output_dir = tmp_path / "validation-only-full" / "gru"
+    result = run_gru_training(
+        TrainingConfig(
+            dataset_dir=synthetic_modeling_dir,
+            output_dir=output_dir,
+            seed=42,
+            device="cpu",
+            batch_size=4,
+            max_epochs=1,
+            patience=1,
+            hidden_size=8,
+            projection_size=8,
+            static_hidden_size=4,
+            prediction_hidden_size=4,
+            evaluate_test=False,
+            exclude_dynamic_features=("bis_error",),
+        )
+    )
+
+    status = json.loads((output_dir / "run_status.json").read_text(encoding="utf-8"))
+    config = json.loads((output_dir / "config.json").read_text(encoding="utf-8"))
+    assert config["smoke"] is False
+    assert config["evaluate_test"] is False
+    assert status["test_evaluated"] is False
+    assert result["test_tensor_shape"] is None
+    assert not (output_dir / "test_predictions.csv").exists()
+    assert not (output_dir / "test_metrics.json").exists()
+
+
 def test_notebook_is_valid_json_with_generic_drive_placeholders() -> None:
     notebook_path = Path("notebooks/colab_gpu_setup.ipynb")
     notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
@@ -173,3 +216,27 @@ def test_notebook_is_valid_json_with_generic_drive_placeholders() -> None:
     assert "--device', 'cuda" in source
     assert "group-retraining" not in source.lower()
     assert set(ATTENTION_SMOKE_REQUIRED) >= {"val_attention.npz", "run_status.json"}
+
+
+def test_full_training_notebook_is_locked_and_validation_only() -> None:
+    notebook_path = Path("notebooks/colab_full_training.ipynb")
+    notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+    code_cells = [
+        "".join(cell.get("source", []))
+        for cell in notebook["cells"]
+        if cell["cell_type"] == "code"
+    ]
+    source = "\n".join(code_cells)
+
+    assert notebook["nbformat"] == 4
+    assert "RUN_FULL_TRAINING = False" in source
+    assert "RUN_40_VALIDATION_ONLY_RUNS" in source
+    assert "--validation-only" in source
+    assert "--device', 'cuda'" in source
+    assert "torch.cuda.is_available()" in source
+    assert "--smoke" not in source
+    assert "EXPECTED_RUN_COUNT == 40" in source
+    assert "no_remifentanil_or_respiratory" in source
+    assert "test_evaluated') is not False" in source
+    for index, cell_source in enumerate(code_cells):
+        compile(cell_source, f"colab_full_training_cell_{index}", "exec")

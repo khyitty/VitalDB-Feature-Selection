@@ -47,6 +47,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--torch-interop-threads", type=int)
     parser.add_argument("--resume", type=Path)
     parser.add_argument("--smoke", action="store_true")
+    parser.add_argument(
+        "--validation-only",
+        action="store_true",
+        help="Train and extract validation attention without loading the test split.",
+    )
     feature_group = parser.add_mutually_exclusive_group()
     feature_group.add_argument("--dynamic-features", type=_feature_names)
     feature_group.add_argument("--exclude-dynamic-features", type=_feature_names)
@@ -83,6 +88,7 @@ def main() -> None:
         torch_num_threads=args.torch_num_threads,
         torch_interop_threads=args.torch_interop_threads,
         smoke=args.smoke,
+        evaluate_test=not args.validation_only,
         resume_checkpoint=args.resume,
         feature_token_embedding_dim=args.feature_token_dim,
         static_context_dim=args.static_context_dim,

@@ -384,6 +384,7 @@ def run_attention_training(config: AttentionTrainingConfig) -> dict[str, Any]:
     )
     set_deterministic_seed(config.seed)
     device = resolve_device(config.device)
+    evaluate_test = config.evaluate_test and not config.smoke
     config.output_dir.mkdir(parents=True, exist_ok=True)
     _write_run_status(config, device, "running")
     train_dataset = load_training_dataset(config, "train")
@@ -568,7 +569,7 @@ def run_attention_training(config: AttentionTrainingConfig) -> dict[str, Any]:
     joint_timings = {"val": val_joint_timing}
     test_metrics: dict[str, Any] | None = None
 
-    if not config.smoke:
+    if evaluate_test:
         test_dataset = load_training_dataset(config, "test")
         test_indices = _selected_indices(test_dataset, None)
         test_loader = make_data_loader(
@@ -632,9 +633,7 @@ def run_attention_training(config: AttentionTrainingConfig) -> dict[str, Any]:
         ),
         "training_batches_per_epoch": len(train_loader),
         "validation_batches_per_epoch": len(val_loader),
-        "test_batches": (
-            len(test_loader) if not config.smoke else None
-        ),
+        "test_batches": len(test_loader) if evaluate_test else None,
         "sampler_samples_per_epoch": len(train_loader.sampler),
         "batch_size": config.batch_size,
         "num_workers": config.num_workers,
@@ -673,7 +672,7 @@ def run_attention_training(config: AttentionTrainingConfig) -> dict[str, Any]:
         best_epoch=best_epoch,
         checkpoint_reload_predictions_identical=prediction_identical,
         checkpoint_reload_attention_identical=attention_identical,
-        test_evaluated=not config.smoke,
+        test_evaluated=evaluate_test,
     )
 
     result: dict[str, Any] = {

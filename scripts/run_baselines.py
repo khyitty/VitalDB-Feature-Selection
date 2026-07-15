@@ -53,6 +53,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     gru.add_argument("--torch-interop-threads", type=int)
     gru.add_argument("--resume", type=Path)
     gru.add_argument("--smoke", action="store_true")
+    gru.add_argument(
+        "--validation-only",
+        action="store_true",
+        help="Train and evaluate on validation without loading the test split.",
+    )
     feature_group = gru.add_mutually_exclusive_group()
     feature_group.add_argument("--dynamic-features", type=_feature_names)
     feature_group.add_argument("--exclude-dynamic-features", type=_feature_names)
@@ -94,6 +99,7 @@ def main() -> None:
         torch_num_threads=args.torch_num_threads,
         torch_interop_threads=args.torch_interop_threads,
         smoke=args.smoke,
+        evaluate_test=not args.validation_only,
         resume_checkpoint=args.resume,
         dynamic_features=args.dynamic_features,
         exclude_dynamic_features=args.exclude_dynamic_features or (),
