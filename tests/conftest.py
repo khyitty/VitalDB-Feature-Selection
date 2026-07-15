@@ -16,6 +16,7 @@ from src.frozen_candidate_retraining import (
     MODELS,
     SEEDS,
     dataset_fingerprint,
+    resolve_git_commit,
 )
 from src.group_retraining_analysis import EXPECTED_FEATURES
 from src.redundancy_audit import REDUCED_FEATURES
@@ -295,6 +296,9 @@ def synthetic_frozen_candidate_workspace(tmp_path: Path) -> dict[str, object]:
     ).to_csv(dataset_dir / "val_metadata.csv", index=False)
 
     group_root = tmp_path / "group_retraining_validation_only"
+    group_training_commit = resolve_git_commit(
+        Path.cwd(), "3387a7e", label="synthetic group-training commit"
+    )
     group_errors = {
         "full17": 1.0,
         "no_remifentanil": 0.8,
@@ -310,7 +314,7 @@ def synthetic_frozen_candidate_workspace(tmp_path: Path) -> dict[str, object]:
                     seed=seed,
                     features=list(features),
                     dataset_dir=dataset_dir,
-                    commit="3387a7e",
+                    commit=group_training_commit,
                     error=(
                         group_errors[condition]
                         + 0.01 * SEEDS.index(seed)

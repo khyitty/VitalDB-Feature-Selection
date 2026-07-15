@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -46,6 +47,8 @@ EXPECTED_DISCOVERY_HASHES = {
     "strict_consensus": "83e2eb15fdf8b272348ddad674fd95505722b99683697e5c9bb7a0ecf926af6d",
     "compact_consensus": "f6ee4bc37e3926493497636ca670bfb15b79843d4d6bd9537f594e8c96899ed9",
 }
+# Keep the historical human-readable abbreviation, but never compare or persist it
+# before resolving it to its unique commit object in the active repository.
 TRAINING_COMMIT = "3387a7e"
 TRAINING_SOURCE_FILES = (
     "src/training.py",
@@ -201,29 +204,123 @@ def dataset_fingerprint(dataset_dir: Path) -> dict[str, Any]:
     }
 
 
-def verify_training_source_compatibility(repo_dir: Path) -> dict[str, str]:
+def resolve_git_commit(repo_dir: Path, commit: object, *, label: str) -> str:
+    """Resolve a SHA abbreviation or full SHA to one canonical commit object ID."""
+
+    if commit is None:
+        raise ValueError(f"Missing {label}.")
+    value = str(commit).strip()
+    if not re.fullmatch(r"[0-9a-fA-F]{4,40}", value):
+        raise ValueError(
+            f"Invalid {label} {value!r}; expected a 4- to 40-character hexadecimal Git SHA."
+        )
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo_dir),
+                "rev-parse",
+                "--verify",
+                f"{value}^{{commit}}",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError as error:
+        raise ValueError(
+            f"Could not resolve {label} {value!r} in {repo_dir}: {error}"
+        ) from error
+    resolved = result.stdout.strip()
+    if result.returncode != 0 or not re.fullmatch(r"[0-9a-fA-F]{40}", resolved):
+        detail = result.stderr.strip() or result.stdout.strip() or "no Git diagnostic"
+        raise ValueError(
+            f"Could not uniquely resolve {label} {value!r} in {repo_dir}. "
+            f"The SHA may be missing, invalid, or ambiguous. Git reported: {detail}"
+        )
+    return resolved.lower()
+
+
+def require_same_git_commit(
+    repo_dir: Path,
+    expected_commit: object,
+    observed_commit: object,
+    *,
+    context: str,
+) -> str:
+    """Require two SHA spellings to resolve to the same Git commit."""
+
+    expected_full = resolve_git_commit(
+        repo_dir, expected_commit, label=f"expected training commit for {context}"
+    )
+    observed_full = resolve_git_commit(
+        repo_dir, observed_commit, label=f"observed training commit for {context}"
+    )
+    return _require_resolved_git_commit_match(
+        expected_commit,
+        expected_full,
+        observed_commit,
+        observed_full,
+        context=context,
+    )
+
+
+def _require_resolved_git_commit_match(
+    expected_commit: object,
+    expected_full: str,
+    observed_commit: object,
+    observed_full: str,
+    *,
+    context: str,
+) -> str:
+    """Compare already resolved IDs while preserving both raw values in errors."""
+
+    if observed_full != expected_full:
+        raise ValueError(
+            f"{context} training commit mismatch: "
+            f"expected raw={expected_commit!r}, full={expected_full}; "
+            f"observed raw={observed_commit!r}, full={observed_full}."
+        )
+    return expected_full
+
+
+def verify_training_source_compatibility(
+    repo_dir: Path, training_commit: object = TRAINING_COMMIT
+) -> dict[str, str]:
     """Require no Git-visible training-source changes since training commit 3387a7e."""
 
+    canonical_commit = resolve_git_commit(
+        repo_dir, training_commit, label="training-source reference commit"
+    )
     comparison = subprocess.run(
-        ["git", "diff", "--quiet", TRAINING_COMMIT, "--", *TRAINING_SOURCE_FILES],
+        ["git", "diff", "--quiet", canonical_commit, "--", *TRAINING_SOURCE_FILES],
         cwd=repo_dir,
         check=False,
     )
     if comparison.returncode != 0:
         changed = subprocess.run(
-            ["git", "diff", "--name-only", TRAINING_COMMIT, "--", *TRAINING_SOURCE_FILES],
+            [
+                "git",
+                "diff",
+                "--name-only",
+                canonical_commit,
+                "--",
+                *TRAINING_SOURCE_FILES,
+            ],
             cwd=repo_dir,
             check=True,
             capture_output=True,
             text=True,
         ).stdout.splitlines()
         raise ValueError(
-            f"Training sources changed meaningfully since {TRAINING_COMMIT}: {changed}"
+            f"Training sources changed meaningfully since "
+            f"{training_commit!r} ({canonical_commit}): {changed}"
         )
     hashes = {}
     for relative in TRAINING_SOURCE_FILES:
         result = subprocess.run(
-            ["git", "show", f"{TRAINING_COMMIT}:{relative}"],
+            ["git", "show", f"{canonical_commit}:{relative}"],
             cwd=repo_dir,
             check=True,
             capture_output=True,
@@ -309,12 +406,21 @@ def build_retraining_plan(
     """Validate 30 reused anchors and define exactly 20 new CUDA runs."""
 
     candidates = load_frozen_candidates(candidate_path)
-    source_hashes = verify_training_source_compatibility(repo_dir)
+    expected_training_commit = resolve_git_commit(
+        repo_dir, TRAINING_COMMIT, label="expected group-training commit"
+    )
+    active_training_commit = resolve_git_commit(
+        repo_dir, active_commit, label="active training commit"
+    )
+    source_hashes = verify_training_source_compatibility(
+        repo_dir, expected_training_commit
+    )
     fingerprint = dataset_fingerprint(dataset_dir)
     _verify_prior_dataset_fingerprint(fingerprint, group_analysis_dir)
     prior_runs = validate_experiment(group_root)
     prior_by_key = {(run.condition, run.model, run.seed): run for run in prior_runs}
     registry = []
+    observed_commit_cache: dict[str, str] = {}
     reference_split: tuple[tuple[int, ...], tuple[int, ...]] | None = None
     for candidate, condition in ANCHOR_MAPPING.items():
         for model in MODELS:
@@ -328,10 +434,25 @@ def build_retraining_plan(
                     candidates.features[candidate],
                     dataset_dir,
                 )
-                if validated["config"]["git_commit_hash"] != TRAINING_COMMIT:
-                    raise ValueError(
-                        f"Prior anchor {run.run_dir} was not trained at {TRAINING_COMMIT}."
+                observed_training_commit = validated["config"].get("git_commit_hash")
+                observed_cache_key = (
+                    str(observed_training_commit).strip()
+                    if observed_training_commit is not None
+                    else "<missing>"
+                )
+                if observed_cache_key not in observed_commit_cache:
+                    observed_commit_cache[observed_cache_key] = resolve_git_commit(
+                        repo_dir,
+                        observed_training_commit,
+                        label=f"observed training commit for Prior anchor {run.run_dir}",
                     )
+                canonical_training_commit = _require_resolved_git_commit_match(
+                    TRAINING_COMMIT,
+                    expected_training_commit,
+                    observed_training_commit,
+                    observed_commit_cache[observed_cache_key],
+                    context=f"Prior anchor {run.run_dir}",
+                )
                 split = (
                     tuple(validated["config"]["selected_training_cases"]),
                     tuple(validated["config"]["selected_validation_cases"]),
@@ -349,7 +470,7 @@ def build_retraining_plan(
                         "source_run_directory": str(run.run_dir),
                         "feature_names": list(candidates.features[candidate]),
                         "feature_count": len(candidates.features[candidate]),
-                        "training_commit": validated["config"]["git_commit_hash"],
+                        "training_commit": canonical_training_commit,
                         "dataset_fingerprint": fingerprint["combined_sha256"],
                         "test_evaluated": False,
                         "completion_status": "complete",
@@ -368,7 +489,7 @@ def build_retraining_plan(
                     "source_run_directory": str(run_dir),
                     "feature_names": list(candidates.features[candidate]),
                     "feature_count": len(candidates.features[candidate]),
-                    "training_commit": active_commit,
+                    "training_commit": active_training_commit,
                     "dataset_fingerprint": fingerprint["combined_sha256"],
                     "test_evaluated": False,
                     "completion_status": "planned",
@@ -389,7 +510,11 @@ def build_retraining_plan(
         "settings": {**FIXED_SETTINGS, "device": "cuda", "num_workers": 0},
         "dataset_fingerprint": fingerprint,
         "training_source_hashes_at_3387a7e": source_hashes,
-        "active_training_commit": active_commit,
+        "expected_group_training_commit": {
+            "configured": TRAINING_COMMIT,
+            "canonical": expected_training_commit,
+        },
+        "active_training_commit": active_training_commit,
         "test_split_policy": "not loaded or evaluated",
     }
     if write_outputs:
