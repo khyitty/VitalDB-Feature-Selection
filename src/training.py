@@ -621,8 +621,12 @@ def run_gru_training(config: TrainingConfig) -> dict[str, Any]:
     if not reload_identical:
         raise AssertionError("Reloaded checkpoint predictions differ from the saved model.")
 
+    final_validation_started = perf_counter()
     val_bundle = predict_model(reloaded_model, val_loader, criterion, device)
+    final_validation_prediction_seconds = perf_counter() - final_validation_started
+    final_test_started = perf_counter()
     test_bundle = predict_model(reloaded_model, test_loader, criterion, device)
+    final_test_prediction_seconds = perf_counter() - final_test_started
     thresholds = select_validation_thresholds(val_bundle.y_true, val_bundle.y_pred)
     val_metrics, val_case_metrics = evaluate_bundle(val_bundle, thresholds)
     test_metrics, test_case_metrics = evaluate_bundle(test_bundle, thresholds)
@@ -655,12 +659,32 @@ def run_gru_training(config: TrainingConfig) -> dict[str, Any]:
         "training_time_seconds": float(
             sum(float(row.get("training_time_seconds", 0.0)) for row in history)
         ),
+        "mean_training_time_per_completed_epoch_seconds": float(
+            np.mean([float(row.get("training_time_seconds", 0.0)) for row in history])
+        ),
         "validation_evaluation_time_seconds": float(
             sum(
                 float(row.get("validation_evaluation_time_seconds", 0.0))
                 for row in history
             )
         ),
+        "mean_training_and_validation_time_per_completed_epoch_seconds": float(
+            np.mean(
+                [
+                    float(row.get("training_time_seconds", 0.0))
+                    + float(row.get("validation_evaluation_time_seconds", 0.0))
+                    for row in history
+                ]
+            )
+        ),
+        "training_batches_per_epoch": len(train_loader),
+        "validation_batches_per_epoch": len(val_loader),
+        "test_batches": len(test_loader),
+        "sampler_samples_per_epoch": len(train_loader.sampler),
+        "batch_size": config.batch_size,
+        "num_workers": config.num_workers,
+        "final_validation_prediction_seconds": final_validation_prediction_seconds,
+        "final_test_prediction_seconds": final_test_prediction_seconds,
         "peak_memory": None,
         "peak_memory_note": "not measured; no memory profiler was added",
     }

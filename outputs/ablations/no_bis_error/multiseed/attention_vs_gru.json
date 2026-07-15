@@ -1,0 +1,461 @@
+{
+  "differences_are_attention_minus_gru": true,
+  "error_direction": "negative favors attention",
+  "discrimination_direction": "positive favors attention",
+  "seed_rows": [
+    {
+      "seed": 7,
+      "split": "val",
+      "pooled_mae": -0.02310861943890119,
+      "pooled_rmse": -0.025908133965401703,
+      "patient_mean_mae": -0.008873708259823587,
+      "bis_below_40_mae": -0.08291205291005266,
+      "bis_40_to_60_mae": 0.013189717002124457,
+      "bis_above_60_mae": -0.029682408668731952,
+      "high_bis_auprc": 0.0007514945061432021,
+      "high_bis_auroc": -1.5434653608870086e-05,
+      "low_bis_auprc": 0.004572710239317601,
+      "low_bis_auroc": 0.002223824109040873,
+      "parameter_count": -5214,
+      "runtime_seconds": 295.0752378000001,
+      "inference_seconds": 0.38802300000043033
+    },
+    {
+      "seed": 7,
+      "split": "test",
+      "pooled_mae": 0.01632002957431844,
+      "pooled_rmse": 0.00980105499517503,
+      "patient_mean_mae": -0.0025212737767343896,
+      "bis_below_40_mae": -0.13124852026732547,
+      "bis_40_to_60_mae": 0.0958958616051575,
+      "bis_above_60_mae": 0.2819091736049595,
+      "high_bis_auprc": 0.00036737449414891987,
+      "high_bis_auroc": -0.0013347731412785002,
+      "low_bis_auprc": 0.0009933674865740816,
+      "low_bis_auroc": -0.00029435915648323707,
+      "parameter_count": -5214,
+      "runtime_seconds": 295.0752378000001,
+      "inference_seconds": 0.6034306000001379
+    },
+    {
+      "seed": 21,
+      "split": "val",
+      "pooled_mae": -0.04454387680478966,
+      "pooled_rmse": -0.045951992091594285,
+      "patient_mean_mae": -0.046205441333996955,
+      "bis_below_40_mae": 0.2799270513739538,
+      "bis_40_to_60_mae": -0.1796644480631131,
+      "bis_above_60_mae": -0.4819572515479873,
+      "high_bis_auprc": 0.002464257191925001,
+      "high_bis_auroc": -0.0005641513358937145,
+      "low_bis_auprc": 0.000414684187380554,
+      "low_bis_auroc": 0.00043005286852493274,
+      "parameter_count": -5214,
+      "runtime_seconds": 300.1691776,
+      "inference_seconds": 1.5541892000010193
+    },
+    {
+      "seed": 21,
+      "split": "test",
+      "pooled_mae": -0.07247283572436514,
+      "pooled_rmse": -0.06404407353435104,
+      "patient_mean_mae": -0.05854013309521422,
+      "bis_below_40_mae": 0.2095646104896125,
+      "bis_40_to_60_mae": -0.26664295887060874,
+      "bis_above_60_mae": -0.24475743666961858,
+      "high_bis_auprc": -0.004710480073060408,
+      "high_bis_auroc": -0.0016169949101906278,
+      "low_bis_auprc": 0.0046275758204766815,
+      "low_bis_auroc": 0.003224706424667767,
+      "parameter_count": -5214,
+      "runtime_seconds": 300.1691776,
+      "inference_seconds": 0.4027556999990338
+    },
+    {
+      "seed": 42,
+      "split": "val",
+      "pooled_mae": -0.028866329205305963,
+      "pooled_rmse": -0.0469285248429836,
+      "patient_mean_mae": -0.015893718967532777,
+      "bis_below_40_mae": 0.05267482010582025,
+      "bis_40_to_60_mae": -0.006517699605542937,
+      "bis_above_60_mae": -0.5696639256965943,
+      "high_bis_auprc": 0.013085419775959006,
+      "high_bis_auroc": 0.0028734999384579796,
+      "low_bis_auprc": -0.0024846723010295557,
+      "low_bis_auroc": -0.0006914587507808045,
+      "parameter_count": -5214,
+      "runtime_seconds": -1289.476291900035,
+      "inference_seconds": 0.49071209999965504
+    },
+    {
+      "seed": 42,
+      "split": "test",
+      "pooled_mae": -0.008789033690028702,
+      "pooled_rmse": 0.006810546599156808,
+      "patient_mean_mae": -0.019132624688257938,
+      "bis_below_40_mae": -0.0770448980095888,
+      "bis_40_to_60_mae": 0.05587729857714541,
+      "bis_above_60_mae": -0.1079327103631531,
+      "high_bis_auprc": -0.0026511564436698665,
+      "high_bis_auroc": -0.0006674702414869449,
+      "low_bis_auprc": -0.00471640467927914,
+      "low_bis_auroc": -0.0030643829940647516,
+      "parameter_count": -5214,
+      "runtime_seconds": -1289.476291900035,
+      "inference_seconds": 1.0251406999996107
+    },
+    {
+      "seed": 84,
+      "split": "val",
+      "pooled_mae": -0.04617473993426513,
+      "pooled_rmse": -0.011010437889373392,
+      "patient_mean_mae": -0.016394746702440788,
+      "bis_below_40_mae": 0.060271654036525124,
+      "bis_40_to_60_mae": -0.03923528633559181,
+      "bis_above_60_mae": -0.5819950185758511,
+      "high_bis_auprc": -0.005257657366322999,
+      "high_bis_auroc": 0.00015820519949261147,
+      "low_bis_auprc": 0.0035783490995434653,
+      "low_bis_auroc": 0.0010261648485969666,
+      "parameter_count": -5214,
+      "runtime_seconds": 429.70560049999995,
+      "inference_seconds": 0.0194299000004321
+    },
+    {
+      "seed": 84,
+      "split": "test",
+      "pooled_mae": -0.050564065263405844,
+      "pooled_rmse": 0.001821739726905136,
+      "patient_mean_mae": -0.029671436885176483,
+      "bis_below_40_mae": -0.030975381374400257,
+      "bis_40_to_60_mae": -0.07008302901289376,
+      "bis_above_60_mae": -0.014458054030114909,
+      "high_bis_auprc": -0.01101230816855081,
+      "high_bis_auroc": -0.0016507142617686599,
+      "low_bis_auprc": 0.005092995103601949,
+      "low_bis_auroc": 0.004144898058017432,
+      "parameter_count": -5214,
+      "runtime_seconds": 429.70560049999995,
+      "inference_seconds": 0.44277770000007877
+    },
+    {
+      "seed": 123,
+      "split": "val",
+      "pooled_mae": -0.016946350334546167,
+      "pooled_rmse": 0.02611259374635644,
+      "patient_mean_mae": 0.008487139719378867,
+      "bis_below_40_mae": 0.03281196757125793,
+      "bis_40_to_60_mae": 0.0089026355820776,
+      "bis_above_60_mae": -0.44040061377708906,
+      "high_bis_auprc": -0.006694693400596252,
+      "high_bis_auroc": -0.0005344125924754417,
+      "low_bis_auprc": -0.001745820837373735,
+      "low_bis_auroc": -0.0005365145229926371,
+      "parameter_count": -5214,
+      "runtime_seconds": 375.97775100000035,
+      "inference_seconds": 0.30635030000030383
+    },
+    {
+      "seed": 123,
+      "split": "test",
+      "pooled_mae": -0.03810281579256802,
+      "pooled_rmse": 0.004260477640397831,
+      "patient_mean_mae": -0.024906809885604453,
+      "bis_below_40_mae": -0.0445689038210082,
+      "bis_40_to_60_mae": -0.07097858603823948,
+      "bis_above_60_mae": 0.26327584942426885,
+      "high_bis_auprc": -0.008573087896454501,
+      "high_bis_auroc": -0.0014481192494769646,
+      "low_bis_auprc": -7.167650629824607e-05,
+      "low_bis_auroc": 0.0005274185997706793,
+      "parameter_count": -5214,
+      "runtime_seconds": 375.97775100000035,
+      "inference_seconds": 0.8375909999986106
+    }
+  ],
+  "summary": [
+    {
+      "split": "val",
+      "metric": "pooled_mae",
+      "mean": -0.03192798314356162,
+      "sample_standard_deviation": 0.012978203598165627,
+      "minimum": -0.04617473993426513,
+      "maximum": -0.016946350334546167
+    },
+    {
+      "split": "val",
+      "metric": "pooled_rmse",
+      "mean": -0.02073729900859931,
+      "sample_standard_deviation": 0.030158012494656404,
+      "minimum": -0.0469285248429836,
+      "maximum": 0.02611259374635644
+    },
+    {
+      "split": "val",
+      "metric": "patient_mean_mae",
+      "mean": -0.01577609510888305,
+      "sample_standard_deviation": 0.019765431853362325,
+      "minimum": -0.046205441333996955,
+      "maximum": 0.008487139719378867
+    },
+    {
+      "split": "val",
+      "metric": "bis_below_40_mae",
+      "mean": 0.06855468803550088,
+      "sample_standard_deviation": 0.13154730187258468,
+      "minimum": -0.08291205291005266,
+      "maximum": 0.2799270513739538
+    },
+    {
+      "split": "val",
+      "metric": "bis_40_to_60_mae",
+      "mean": -0.04066501628400916,
+      "sample_standard_deviation": 0.08038378226952374,
+      "minimum": -0.1796644480631131,
+      "maximum": 0.013189717002124457
+    },
+    {
+      "split": "val",
+      "metric": "bis_above_60_mae",
+      "mean": -0.42073984365325073,
+      "sample_standard_deviation": 0.22651801695431154,
+      "minimum": -0.5819950185758511,
+      "maximum": -0.029682408668731952
+    },
+    {
+      "split": "val",
+      "metric": "high_bis_auprc",
+      "mean": 0.0008697641414215918,
+      "sample_standard_deviation": 0.007850874961029819,
+      "minimum": -0.006694693400596252,
+      "maximum": 0.013085419775959006
+    },
+    {
+      "split": "val",
+      "metric": "high_bis_auroc",
+      "mean": 0.00038354131119451297,
+      "sample_standard_deviation": 0.0014274639112618127,
+      "minimum": -0.0005641513358937145,
+      "maximum": 0.0028734999384579796
+    },
+    {
+      "split": "val",
+      "metric": "low_bis_auprc",
+      "mean": 0.0008670500775676659,
+      "sample_standard_deviation": 0.003136432361812079,
+      "minimum": -0.0024846723010295557,
+      "maximum": 0.004572710239317601
+    },
+    {
+      "split": "val",
+      "metric": "low_bis_auroc",
+      "mean": 0.0004904137104778661,
+      "sample_standard_deviation": 0.0011986230052088956,
+      "minimum": -0.0006914587507808045,
+      "maximum": 0.002223824109040873
+    },
+    {
+      "split": "val",
+      "metric": "parameter_count",
+      "mean": -5214.0,
+      "sample_standard_deviation": 0.0,
+      "minimum": -5214.0,
+      "maximum": -5214.0
+    },
+    {
+      "split": "val",
+      "metric": "runtime_seconds",
+      "mean": 22.29029499999308,
+      "sample_standard_deviation": 735.4321730466041,
+      "minimum": -1289.476291900035,
+      "maximum": 429.70560049999995
+    },
+    {
+      "split": "val",
+      "metric": "inference_seconds",
+      "mean": 0.5517409000003681,
+      "sample_standard_deviation": 0.587154623304934,
+      "minimum": 0.0194299000004321,
+      "maximum": 1.5541892000010193
+    },
+    {
+      "split": "test",
+      "metric": "pooled_mae",
+      "mean": -0.030721744179209854,
+      "sample_standard_deviation": 0.03494754582464328,
+      "minimum": -0.07247283572436514,
+      "maximum": 0.01632002957431844
+    },
+    {
+      "split": "test",
+      "metric": "pooled_rmse",
+      "mean": -0.008270050914543248,
+      "sample_standard_deviation": 0.031319280298173845,
+      "minimum": -0.06404407353435104,
+      "maximum": 0.00980105499517503
+    },
+    {
+      "split": "test",
+      "metric": "patient_mean_mae",
+      "mean": -0.026954455666197495,
+      "sample_standard_deviation": 0.020416851348383794,
+      "minimum": -0.05854013309521422,
+      "maximum": -0.0025212737767343896
+    },
+    {
+      "split": "test",
+      "metric": "bis_below_40_mae",
+      "mean": -0.014854618596542047,
+      "sample_standard_deviation": 0.13126497945204735,
+      "minimum": -0.13124852026732547,
+      "maximum": 0.2095646104896125
+    },
+    {
+      "split": "test",
+      "metric": "bis_40_to_60_mae",
+      "mean": -0.051186282747887814,
+      "sample_standard_deviation": 0.14165642344103602,
+      "minimum": -0.26664295887060874,
+      "maximum": 0.0958958616051575
+    },
+    {
+      "split": "test",
+      "metric": "bis_above_60_mae",
+      "mean": 0.03560736439326835,
+      "sample_standard_deviation": 0.23141534151568413,
+      "minimum": -0.24475743666961858,
+      "maximum": 0.2819091736049595
+    },
+    {
+      "split": "test",
+      "metric": "high_bis_auprc",
+      "mean": -0.005315931617517334,
+      "sample_standard_deviation": 0.00455042139519314,
+      "minimum": -0.01101230816855081,
+      "maximum": 0.00036737449414891987
+    },
+    {
+      "split": "test",
+      "metric": "high_bis_auroc",
+      "mean": -0.0013436143608403395,
+      "sample_standard_deviation": 0.0003991295475662386,
+      "minimum": -0.0016507142617686599,
+      "maximum": -0.0006674702414869449
+    },
+    {
+      "split": "test",
+      "metric": "low_bis_auprc",
+      "mean": 0.0011851714450150652,
+      "sample_standard_deviation": 0.003986423519674063,
+      "minimum": -0.00471640467927914,
+      "maximum": 0.005092995103601949
+    },
+    {
+      "split": "test",
+      "metric": "low_bis_auroc",
+      "mean": 0.000907656186381578,
+      "sample_standard_deviation": 0.0028816216571563203,
+      "minimum": -0.0030643829940647516,
+      "maximum": 0.004144898058017432
+    },
+    {
+      "split": "test",
+      "metric": "parameter_count",
+      "mean": -5214.0,
+      "sample_standard_deviation": 0.0,
+      "minimum": -5214.0,
+      "maximum": -5214.0
+    },
+    {
+      "split": "test",
+      "metric": "runtime_seconds",
+      "mean": 22.29029499999308,
+      "sample_standard_deviation": 735.4321730466041,
+      "minimum": -1289.476291900035,
+      "maximum": 429.70560049999995
+    },
+    {
+      "split": "test",
+      "metric": "inference_seconds",
+      "mean": 0.6623391399994943,
+      "sample_standard_deviation": 0.2652353627976543,
+      "minimum": 0.4027556999990338,
+      "maximum": 1.0251406999996107
+    }
+  ],
+  "patient_win_counts": [
+    {
+      "seed": 7,
+      "split": "val",
+      "attention_patient_win_count": 7,
+      "median_patient_mae_difference": 0.009962597580644772
+    },
+    {
+      "seed": 7,
+      "split": "test",
+      "attention_patient_win_count": 7,
+      "median_patient_mae_difference": 0.01469376090750485
+    },
+    {
+      "seed": 21,
+      "split": "val",
+      "attention_patient_win_count": 9,
+      "median_patient_mae_difference": -0.05100530555555505
+    },
+    {
+      "seed": 21,
+      "split": "test",
+      "attention_patient_win_count": 9,
+      "median_patient_mae_difference": -0.059140762960314675
+    },
+    {
+      "seed": 42,
+      "split": "val",
+      "attention_patient_win_count": 11,
+      "median_patient_mae_difference": -0.01901066568047316
+    },
+    {
+      "seed": 42,
+      "split": "test",
+      "attention_patient_win_count": 8,
+      "median_patient_mae_difference": -0.00384230113636308
+    },
+    {
+      "seed": 84,
+      "split": "val",
+      "attention_patient_win_count": 11,
+      "median_patient_mae_difference": -0.02372258591549281
+    },
+    {
+      "seed": 84,
+      "split": "test",
+      "attention_patient_win_count": 7,
+      "median_patient_mae_difference": 0.005498281944444017
+    },
+    {
+      "seed": 123,
+      "split": "val",
+      "attention_patient_win_count": 7,
+      "median_patient_mae_difference": 0.005733495774647768
+    },
+    {
+      "seed": 123,
+      "split": "test",
+      "attention_patient_win_count": 10,
+      "median_patient_mae_difference": -0.005572346153845942
+    }
+  ],
+  "seed_averaged_test_patient_win_count": 9,
+  "mean_test_patient_win_count_per_seed": 8.2,
+  "test_patient_mae_effectively_tied_within_0_05_by_seed": {
+    "7": true,
+    "21": false,
+    "42": true,
+    "84": true,
+    "123": true
+  },
+  "best_seed_by_test_patient_mae_difference": 21,
+  "worst_seed_by_test_patient_mae_difference": 7,
+  "no_superiority_claim_from_small_mean_difference": true
+}

@@ -594,6 +594,8 @@ def run_attention_training(config: AttentionTrainingConfig) -> dict[str, Any]:
     runtime_breakdown = {
         "total_internal_runtime_seconds": perf_counter() - run_started,
         "completed_epochs": completed_epochs,
+        "best_epoch": best_epoch,
+        "early_stopping_epoch": int(history[-1]["epoch"]),
         "training_time_seconds": float(
             sum(float(row["training_time_seconds"]) for row in history)
         ),
@@ -608,6 +610,23 @@ def run_attention_training(config: AttentionTrainingConfig) -> dict[str, Any]:
                 [float(row["validation_evaluation_time_seconds"]) for row in history]
             )
         ),
+        "mean_training_and_validation_time_per_completed_epoch_seconds": float(
+            np.mean(
+                [
+                    float(row["training_time_seconds"])
+                    + float(row["validation_evaluation_time_seconds"])
+                    for row in history
+                ]
+            )
+        ),
+        "training_batches_per_epoch": len(train_loader),
+        "validation_batches_per_epoch": len(val_loader),
+        "test_batches": (
+            len(test_loader) if not config.smoke else None
+        ),
+        "sampler_samples_per_epoch": len(train_loader.sampler),
+        "batch_size": config.batch_size,
+        "num_workers": config.num_workers,
         "checkpoint_save_time_seconds": checkpoint_save_seconds,
         "checkpoint_load_and_reload_verification_time_seconds": (
             checkpoint_load_seconds

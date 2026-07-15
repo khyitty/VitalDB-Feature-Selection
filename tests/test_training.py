@@ -48,6 +48,11 @@ def test_end_to_end_training_saves_and_reloads_identical_checkpoint_predictions(
     assert config["dynamic_feature_names"][-1] == "bis_slope"
     assert len(config["dynamic_feature_names"]) == 17
     assert result["train_tensor_shape"] == [8, 6, 17]
+    runtime = json.loads((output_dir / "runtime.json").read_text())
+    assert runtime["training_batches_per_epoch"] == 2
+    assert runtime["sampler_samples_per_epoch"] == 8
+    assert runtime["final_validation_prediction_seconds"] >= 0
+    assert runtime["final_test_prediction_seconds"] >= 0
     test_metrics = json.loads((output_dir / "test_metrics.json").read_text())
     for case_id in ("97", "154"):
         diagnostic = test_metrics["entirely_missing_remifentanil_case_diagnostics"][case_id]

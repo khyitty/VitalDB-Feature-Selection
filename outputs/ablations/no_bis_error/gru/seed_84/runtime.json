@@ -1,0 +1,20 @@
+{
+  "total_internal_runtime_seconds": 165.1278959000001,
+  "completed_epochs": 13,
+  "best_epoch": 5,
+  "early_stopping_epoch": 13,
+  "training_time_seconds": 133.61285260000113,
+  "mean_training_time_per_completed_epoch_seconds": 10.277911738461626,
+  "validation_evaluation_time_seconds": 22.369269600000734,
+  "mean_training_and_validation_time_per_completed_epoch_seconds": 11.998624784615528,
+  "training_batches_per_epoch": 268,
+  "validation_batches_per_epoch": 67,
+  "test_batches": 67,
+  "sampler_samples_per_epoch": 68470,
+  "batch_size": 256,
+  "num_workers": 0,
+  "final_validation_prediction_seconds": 2.262087099999917,
+  "final_test_prediction_seconds": 2.225592499999948,
+  "peak_memory": null,
+  "peak_memory_note": "not measured; no memory profiler was added"
+}

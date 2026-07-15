@@ -135,3 +135,14 @@ The original arrays and their preprocessing statistics remain unchanged. `bis_er
 may later be reconsidered as an explicit control-derived RL policy input, but not as
 independent evidence in prediction feature-attention rankings. The complete diagnostic
 is written under `outputs/ablations/no_bis_error`.
+
+Aggregate the paired reduced GRU/attention runs for seeds 7, 21, 42, 84, and 123:
+
+```powershell
+python scripts/aggregate_reduced_multiseed.py --root-dir outputs/ablations/no_bis_error --dataset-dir data/modeling/full --output-dir outputs/ablations/no_bis_error/multiseed --seeds 7,21,42,84,123
+```
+
+The five-seed diagnostic found effectively preserved prediction performance but
+unstable individual and grouped attention rankings. The multiseed outputs must
+therefore be treated as reproducibility diagnostics, not causal importance or a basis
+for top-k selection.

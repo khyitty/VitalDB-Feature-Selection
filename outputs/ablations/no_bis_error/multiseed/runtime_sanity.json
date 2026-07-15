@@ -1,0 +1,28 @@
+{
+  "original_18_feature_seed_42_reported_runtime_seconds": 173.070384,
+  "reduced_17_feature_seed_42_internal_runtime_seconds": 1615.2501671999926,
+  "seed_42_first_four_epoch_training_seconds": [
+    202.53003230004103,
+    265.02394189999904,
+    232.57799140003044,
+    296.66340309998486
+  ],
+  "seed_42_first_four_epoch_total_seconds": 996.7953687000554,
+  "seed_42_remaining_epoch_mean_training_seconds": 29.30657881333803,
+  "seed_7_total_runtime_seconds": 135.88821849999988,
+  "seed_7_mean_epoch_time_seconds": 11.673079254545458,
+  "training_batches_per_epoch": 268,
+  "sampler_samples_per_epoch": 68470,
+  "batch_size": 256,
+  "num_workers": 0,
+  "feature_subset_selected_once_during_dataset_load": true,
+  "feature_indices_not_recomputed_in_getitem": true,
+  "validation_passes_per_epoch": 1,
+  "test_passes_during_model_selection": 0,
+  "history_csv_serializations_per_epoch": 1,
+  "checkpoint_reload_integrity_scope": "first validation batch only",
+  "runtime_boundaries_comparable": false,
+  "boundary_note": "Original runtime was externally supplied command timing; reduced runtime uses internal perf_counter and includes setup/final evaluation.",
+  "conclusion": "No implementation defect found. The seed-42 discrepancy is dominated by four transient slow epochs and is not reproduced by seed 7.",
+  "mathematical_model_changed_for_runtime": false
+}

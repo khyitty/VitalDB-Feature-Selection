@@ -1,0 +1,106 @@
+{
+  "pooled_window": {
+    "regression": {
+      "mae": 3.225030948447374,
+      "rmse": 4.417339857909704,
+      "r_squared": 0.812115328148705
+    },
+    "bis_region_mae": {
+      "bis_below_40": 2.995356129955695,
+      "bis_40_to_60": 3.2419639295236222,
+      "bis_above_60": 4.4903300431473685
+    },
+    "high_bis_classification": {
+      "auprc": 0.8717334523299681,
+      "auroc": 0.9852322627425264
+    },
+    "low_bis_classification": {
+      "auprc": 0.8750851362881474,
+      "auroc": 0.9042095913531818
+    },
+    "high_bis_threshold_metrics": {
+      "threshold": 57.408870697021484,
+      "f1": 0.7978414279784143,
+      "sensitivity": 0.8511957484499557,
+      "specificity": 0.9799105737137099
+    },
+    "low_bis_threshold_metrics": {
+      "threshold": -40.2326774597168,
+      "f1": 0.782788639931497,
+      "sensitivity": 0.796890890600029,
+      "specificity": 0.8374320987654321
+    }
+  },
+  "patient_level": {
+    "number_of_evaluated_cases": 15,
+    "number_of_cases_auprc_defined": 15,
+    "number_of_cases_auroc_defined": 15,
+    "mae": {
+      "count_defined": 15,
+      "mean": 3.3371732756793175,
+      "median": 3.3383784089477277,
+      "standard_deviation": 0.4884011748730412,
+      "interquartile_range": 0.4630087334992461
+    },
+    "rmse": {
+      "count_defined": 15,
+      "mean": 4.531872082960101,
+      "median": 4.336554904708243,
+      "standard_deviation": 0.7157431649703431,
+      "interquartile_range": 0.7697950120987773
+    },
+    "high_bis_auprc": {
+      "count_defined": 15,
+      "mean": 0.7564468973748327,
+      "median": 0.8244294861613007,
+      "standard_deviation": 0.2281360011677446,
+      "interquartile_range": 0.23413907653045674
+    },
+    "high_bis_auroc": {
+      "count_defined": 15,
+      "mean": 0.9710639019224421,
+      "median": 0.9870669803452954,
+      "standard_deviation": 0.034487381217598964,
+      "interquartile_range": 0.03770348457427408
+    }
+  },
+  "mean_huber_loss": 2.764349191680004,
+  "thresholds_selected_on_validation": {
+    "high_bis_score": 57.408870697021484,
+    "low_bis_score": -40.2326774597168
+  },
+  "entirely_missing_remifentanil_case_diagnostics": {
+    "97": {
+      "included": true,
+      "number_of_windows": 1378,
+      "remifentanil_feature_names": [
+        "rftn_rate",
+        "rftn_volume",
+        "rftn_cp",
+        "rftn_ce"
+      ],
+      "all_remifentanil_observation_masks_zero": true,
+      "all_predictions_finite": true,
+      "patient_metrics_reported": true,
+      "mae": 2.4411739091914693,
+      "rmse": 3.517708616805036
+    },
+    "154": {
+      "included": true,
+      "number_of_windows": 1315,
+      "remifentanil_feature_names": [
+        "rftn_rate",
+        "rftn_volume",
+        "rftn_cp",
+        "rftn_ce"
+      ],
+      "all_remifentanil_observation_masks_zero": true,
+      "all_predictions_finite": true,
+      "patient_metrics_reported": true,
+      "mae": 2.964914166700704,
+      "rmse": 4.0661638277557435
+    }
+  },
+  "checkpoint_reload_predictions_identical": true,
+  "model_parameter_count": 30209
+}

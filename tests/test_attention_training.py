@@ -91,6 +91,10 @@ def test_attention_smoke_pipeline_saves_aligned_outputs(
     assert attention_metadata["runtime_breakdown"][
         "repeated_final_dataset_pass_avoided"
     ]
+    runtime = attention_metadata["runtime_breakdown"]
+    assert runtime["training_batches_per_epoch"] == 2
+    assert runtime["validation_batches_per_epoch"] == 2
+    assert runtime["sampler_samples_per_epoch"] == 8
 
 
 def test_joint_evaluation_calls_attention_model_once_per_batch(

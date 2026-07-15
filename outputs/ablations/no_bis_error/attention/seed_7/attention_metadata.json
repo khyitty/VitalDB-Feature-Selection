@@ -1,0 +1,159 @@
+{
+  "dynamic_feature_names": [
+    "bis",
+    "bis_sqi",
+    "hr",
+    "mbp",
+    "sbp",
+    "dbp",
+    "spo2",
+    "etco2",
+    "ppf_rate",
+    "ppf_volume",
+    "ppf_cp",
+    "ppf_ce",
+    "rftn_rate",
+    "rftn_volume",
+    "rftn_cp",
+    "rftn_ce",
+    "bis_slope"
+  ],
+  "time_lags_seconds": [
+    -50,
+    -40,
+    -30,
+    -20,
+    -10,
+    0
+  ],
+  "feature_attention_shape": [
+    17038,
+    6,
+    17
+  ],
+  "temporal_attention_shape": [
+    17038,
+    6
+  ],
+  "combined_attention_shape": [
+    17038,
+    6,
+    17
+  ],
+  "feature_attention_normalization_dimension": "P, dynamic features (axis 2)",
+  "temporal_attention_normalization_dimension": "L, historical time (axis 1)",
+  "combined_attention_definition": "temporal_attention[:, :, None] * feature_attention",
+  "combined_attention_interpretation": "factorized model-importance weight, not a causal effect",
+  "model_checkpoint_identifier": "best_model.pt:epoch_15",
+  "checkpoint_reload_attention_identical": true,
+  "feature_attention_normalization_max_absolute_error": 6.556510925292969e-07,
+  "temporal_attention_normalization_max_absolute_error": 1.1920928955078125e-07,
+  "combined_attention_normalization_max_absolute_error": 5.364418029785156e-07,
+  "maximum_missing_feature_attention_weight": 0.0,
+  "all_attention_values_finite": true,
+  "splits": {
+    "val": {
+      "feature_attention_shape": [
+        17038,
+        6,
+        17
+      ],
+      "temporal_attention_shape": [
+        17038,
+        6
+      ],
+      "combined_attention_shape": [
+        17038,
+        6,
+        17
+      ],
+      "feature_attention_normalization_max_absolute_error": 6.556510925292969e-07,
+      "temporal_attention_normalization_max_absolute_error": 1.1920928955078125e-07,
+      "combined_attention_normalization_max_absolute_error": 5.364418029785156e-07,
+      "maximum_missing_feature_attention_weight": 0.0,
+      "all_attention_values_finite": true
+    },
+    "test": {
+      "feature_attention_shape": [
+        17008,
+        6,
+        17
+      ],
+      "temporal_attention_shape": [
+        17008,
+        6
+      ],
+      "combined_attention_shape": [
+        17008,
+        6,
+        17
+      ],
+      "feature_attention_normalization_max_absolute_error": 5.960464477539062e-07,
+      "temporal_attention_normalization_max_absolute_error": 1.1920928955078125e-07,
+      "combined_attention_normalization_max_absolute_error": 5.364418029785156e-07,
+      "maximum_missing_feature_attention_weight": 0.0,
+      "all_attention_values_finite": true
+    }
+  },
+  "runtime_breakdown": {
+    "total_internal_runtime_seconds": 430.96345629999996,
+    "completed_epochs": 23,
+    "best_epoch": 15,
+    "early_stopping_epoch": 23,
+    "training_time_seconds": 372.0009814,
+    "mean_training_time_per_completed_epoch_seconds": 16.17395571304348,
+    "validation_evaluation_time_per_epoch_seconds": [
+      1.988589999999931,
+      2.51240329999996,
+      2.2807405000000927,
+      2.3082808999999997,
+      2.3527263000000858,
+      1.854778799999849,
+      2.122159899999815,
+      2.326480599999968,
+      1.794033100000206,
+      2.2129201999998713,
+      1.58207329999982,
+      1.722574499999837,
+      1.9927769999999327,
+      2.074219800000037,
+      2.193658300000152,
+      1.785028999999895,
+      2.171709700000065,
+      1.9439861000000747,
+      3.2649235999999746,
+      1.8207998999998836,
+      1.9778848000000835,
+      2.1620106000000305,
+      1.9011140999998588
+    ],
+    "mean_validation_evaluation_time_per_epoch_seconds": 2.1019945347825835,
+    "mean_training_and_validation_time_per_completed_epoch_seconds": 18.275950247826064,
+    "training_batches_per_epoch": 268,
+    "validation_batches_per_epoch": 67,
+    "test_batches": 67,
+    "sampler_samples_per_epoch": 68470,
+    "batch_size": 256,
+    "num_workers": 0,
+    "checkpoint_save_time_seconds": 0.40918000000056054,
+    "checkpoint_load_and_reload_verification_time_seconds": 0.08597789999998895,
+    "serialization_time_seconds": 2.6008801999998923,
+    "final_joint_prediction_attention_passes": {
+      "val": {
+        "total_seconds": 2.2026180000000295,
+        "shared_model_forward_seconds": 0.7599112999987483,
+        "prediction_collection_seconds": 0.013102699999990364,
+        "attention_collection_seconds": 0.0028749000005063863
+      },
+      "test": {
+        "total_seconds": 1.6642130999998699,
+        "shared_model_forward_seconds": 0.5386824999998225,
+        "prediction_collection_seconds": 0.012056600000960316,
+        "attention_collection_seconds": 0.0025404000002708926
+      }
+    },
+    "repeated_final_dataset_pass_avoided": true,
+    "peak_memory": null,
+    "peak_memory_note": "not measured; no memory profiler was added"
+  }
+}
