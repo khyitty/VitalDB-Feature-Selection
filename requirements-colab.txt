@@ -1,0 +1,9 @@
+# Keep Google Colab's preinstalled CUDA-enabled PyTorch build.
+# This file must never include torch, torchvision, or torchaudio.
+vitaldb
+pandas
+numpy
+matplotlib
+tqdm
+pytest
+scikit-learn

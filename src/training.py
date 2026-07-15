@@ -119,15 +119,39 @@ def configure_torch_threads(
 
 
 def resolve_device(requested: str) -> torch.device:
-    """Resolve auto/cpu/cuda with a clear CPU fallback."""
+    """Resolve auto/cpu/cuda and reject unavailable explicitly requested CUDA."""
 
     if requested == "auto":
         return torch.device("cuda" if torch.cuda.is_available() else "cpu")
     device = torch.device(requested)
     if device.type == "cuda" and not torch.cuda.is_available():
-        LOGGER.warning("CUDA was requested but is unavailable; falling back to CPU.")
-        return torch.device("cpu")
+        raise RuntimeError(
+            "CUDA was explicitly requested but is unavailable. On Colab select "
+            "Runtime > Change runtime type > GPU, then rerun the environment audit."
+        )
     return device
+
+
+def _write_run_status(
+    config: TrainingConfig,
+    device: torch.device,
+    status: str,
+    **details: Any,
+) -> None:
+    """Persist a small run marker so interrupted directories are not called complete."""
+
+    _save_json(
+        {
+            "status": status,
+            "seed": config.seed,
+            "smoke": config.smoke,
+            "requested_device": config.device,
+            "resolved_device": str(device),
+            "git_commit_hash": _git_commit_hash(),
+            **details,
+        },
+        config.output_dir / "run_status.json",
+    )
 
 
 def _git_commit_hash() -> str | None:
@@ -499,12 +523,11 @@ def run_gru_training(config: TrainingConfig) -> dict[str, Any]:
     set_deterministic_seed(config.seed)
     device = resolve_device(config.device)
     config.output_dir.mkdir(parents=True, exist_ok=True)
+    _write_run_status(config, device, "running")
     train_dataset = load_training_dataset(config, "train")
     val_dataset = load_training_dataset(config, "val")
-    test_dataset = load_training_dataset(config, "test")
     train_indices = _selected_indices(train_dataset, 4 if config.smoke else None)
     val_indices = _selected_indices(val_dataset, 3 if config.smoke else None)
-    test_indices = _selected_indices(test_dataset, None)
 
     train_loader = make_data_loader(
         train_dataset,
@@ -518,15 +541,6 @@ def run_gru_training(config: TrainingConfig) -> dict[str, Any]:
     val_loader = make_data_loader(
         val_dataset,
         val_indices,
-        config.batch_size,
-        config.seed,
-        training=False,
-        case_balanced=False,
-        num_workers=config.num_workers,
-    )
-    test_loader = make_data_loader(
-        test_dataset,
-        test_indices,
         config.batch_size,
         config.seed,
         training=False,
@@ -555,6 +569,11 @@ def run_gru_training(config: TrainingConfig) -> dict[str, Any]:
     resolved_config = {
         **_json_ready_config(config),
         "resolved_device": str(device),
+        "backend": device.type,
+        "pytorch_cuda_runtime": torch.version.cuda,
+        "cuda_device_name": (
+            torch.cuda.get_device_name(device) if device.type == "cuda" else None
+        ),
         "model_parameter_count": parameter_count,
         "dynamic_feature_names": list(train_dataset.dynamic_feature_names),
         "static_feature_names": list(train_dataset.static_feature_names),
@@ -653,33 +672,56 @@ def run_gru_training(config: TrainingConfig) -> dict[str, Any]:
     final_validation_started = perf_counter()
     val_bundle = predict_model(reloaded_model, val_loader, criterion, device)
     final_validation_prediction_seconds = perf_counter() - final_validation_started
-    final_test_started = perf_counter()
-    test_bundle = predict_model(reloaded_model, test_loader, criterion, device)
-    final_test_prediction_seconds = perf_counter() - final_test_started
     thresholds = select_validation_thresholds(val_bundle.y_true, val_bundle.y_pred)
     val_metrics, val_case_metrics = evaluate_bundle(val_bundle, thresholds)
-    test_metrics, test_case_metrics = evaluate_bundle(test_bundle, thresholds)
     val_case_metrics.insert(0, "split", "val")
-    test_case_metrics.insert(0, "split", "test")
-    test_metrics["entirely_missing_remifentanil_case_diagnostics"] = (
-        _remifentanil_diagnostics(test_dataset, test_bundle, test_case_metrics)
-    )
     val_metrics["checkpoint_reload_predictions_identical"] = reload_identical
-    test_metrics["checkpoint_reload_predictions_identical"] = reload_identical
     val_metrics["model_parameter_count"] = parameter_count
-    test_metrics["model_parameter_count"] = parameter_count
 
     prediction_frame(val_bundle).to_csv(
         config.output_dir / "val_predictions.csv", index=False
     )
-    prediction_frame(test_bundle).to_csv(
-        config.output_dir / "test_predictions.csv", index=False
-    )
-    pd.concat((val_case_metrics, test_case_metrics), ignore_index=True).to_csv(
-        config.output_dir / "case_metrics.csv", index=False
-    )
+    val_case_metrics.to_csv(config.output_dir / "case_metrics.csv", index=False)
     _save_json(val_metrics, config.output_dir / "val_metrics.json")
-    _save_json(test_metrics, config.output_dir / "test_metrics.json")
+    test_metrics: dict[str, Any] | None = None
+    test_tensor_shape: list[int] | None = None
+    test_batch_count: int | None = None
+    final_test_prediction_seconds: float | None = None
+    if not config.smoke:
+        test_dataset = load_training_dataset(config, "test")
+        test_indices = _selected_indices(test_dataset, None)
+        test_loader = make_data_loader(
+            test_dataset,
+            test_indices,
+            config.batch_size,
+            config.seed,
+            training=False,
+            case_balanced=False,
+            num_workers=config.num_workers,
+        )
+        final_test_started = perf_counter()
+        test_bundle = predict_model(reloaded_model, test_loader, criterion, device)
+        final_test_prediction_seconds = perf_counter() - final_test_started
+        test_metrics, test_case_metrics = evaluate_bundle(test_bundle, thresholds)
+        test_case_metrics.insert(0, "split", "test")
+        test_metrics["entirely_missing_remifentanil_case_diagnostics"] = (
+            _remifentanil_diagnostics(test_dataset, test_bundle, test_case_metrics)
+        )
+        test_metrics["checkpoint_reload_predictions_identical"] = reload_identical
+        test_metrics["model_parameter_count"] = parameter_count
+        prediction_frame(test_bundle).to_csv(
+            config.output_dir / "test_predictions.csv", index=False
+        )
+        pd.concat((val_case_metrics, test_case_metrics), ignore_index=True).to_csv(
+            config.output_dir / "case_metrics.csv", index=False
+        )
+        _save_json(test_metrics, config.output_dir / "test_metrics.json")
+        test_tensor_shape = [
+            len(test_indices),
+            int(test_dataset.dataset_metadata["history_steps"]),
+            len(test_dataset.dynamic_feature_names),
+        ]
+        test_batch_count = len(test_loader)
     runtime = {
         "total_internal_runtime_seconds": perf_counter() - run_started,
         "completed_epochs": len(history),
@@ -708,7 +750,7 @@ def run_gru_training(config: TrainingConfig) -> dict[str, Any]:
         ),
         "training_batches_per_epoch": len(train_loader),
         "validation_batches_per_epoch": len(val_loader),
-        "test_batches": len(test_loader),
+        "test_batches": test_batch_count,
         "sampler_samples_per_epoch": len(train_loader.sampler),
         "batch_size": config.batch_size,
         "num_workers": config.num_workers,
@@ -718,7 +760,16 @@ def run_gru_training(config: TrainingConfig) -> dict[str, Any]:
         "peak_memory_note": "not measured; no memory profiler was added",
     }
     _save_json(runtime, config.output_dir / "runtime.json")
-    return {
+    _write_run_status(
+        config,
+        device,
+        "complete",
+        completed_epochs=len(history),
+        best_epoch=best_epoch,
+        checkpoint_reload_predictions_identical=reload_identical,
+        test_evaluated=not config.smoke,
+    )
+    result: dict[str, Any] = {
         "output_dir": str(config.output_dir),
         "parameter_count": parameter_count,
         "device": str(device),
@@ -728,13 +779,11 @@ def run_gru_training(config: TrainingConfig) -> dict[str, Any]:
             6,
             len(val_dataset.dynamic_feature_names),
         ],
-        "test_tensor_shape": [
-            len(test_indices),
-            6,
-            len(test_dataset.dynamic_feature_names),
-        ],
+        "test_tensor_shape": test_tensor_shape,
         "checkpoint_reload_predictions_identical": reload_identical,
         "runtime": runtime,
         "validation_metrics": val_metrics,
-        "test_metrics": test_metrics,
     }
+    if test_metrics is not None:
+        result["test_metrics"] = test_metrics
+    return result

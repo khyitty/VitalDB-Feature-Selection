@@ -170,3 +170,43 @@ Future training commands may set `--torch-num-threads`,
 defaults. Every future paired comparison must use the same device and backend for all
 models and seeds. Completed historical experiments should not be rerun only to adopt
 a faster device or thread configuration.
+
+## Google Colab GPU Validation
+
+Open `notebooks/colab_gpu_setup.ipynb` in a GPU-enabled Google Colab runtime. The
+notebook mounts Drive, clones or updates this repository, records the active commit,
+retains Colab's CUDA-enabled PyTorch, validates modeling artifacts, runs tests, and
+performs only validation smoke experiments and a short CUDA benchmark.
+
+The configurable Drive placeholders are:
+
+```python
+DRIVE_PROJECT_ROOT = "/content/drive/MyDrive/VitalDB-Feature-Selection"
+DATASET_DIR = f"{DRIVE_PROJECT_ROOT}/data/modeling/full"
+OUTPUT_ROOT = f"{DRIVE_PROJECT_ROOT}/outputs"
+```
+
+Do not commit the Drive dataset, credentials, or tokens. GPU training uses only the
+saved modeling artifacts and does not require the raw one-second VitalDB CSV. The
+Colab dependency installer reads `requirements-colab.txt`, rejects PyTorch packages,
+examines pip's dry-run plan, and installs only missing non-PyTorch dependencies.
+
+The notebook executes these guarded commands after CUDA and data validation:
+
+```bash
+python -m pytest -q
+python scripts/run_baselines.py gru --dataset-dir "$DATASET_DIR" --output-dir "$OUTPUT_ROOT/colab_smoke/gru/seed_42" --exclude-dynamic-features bis_error --smoke --seed 42 --device cuda
+python scripts/run_attention.py --dataset-dir "$DATASET_DIR" --output-dir "$OUTPUT_ROOT/colab_smoke/attention/seed_42" --exclude-dynamic-features bis_error --smoke --seed 42 --device cuda
+python scripts/benchmark_colab_gpu.py --dataset-dir "$DATASET_DIR" --output-dir "$OUTPUT_ROOT/runtime_benchmark" --batch-sizes 256,512,1024,2048 --measured-batches 20 --warmup-batches 3 --seed 42
+```
+
+`run_status.json` is written as `running` before training and `complete` only after
+checkpoint reload and output serialization. The notebook skips complete smoke runs
+and restarts only an incomplete run directory. Smoke mode does not evaluate the test
+split. CPU and CUDA outputs need not be bitwise identical, but every paired scientific
+comparison must use one backend for every model and seed.
+
+The existing test split has already been inspected during development and is therefore
+a development test set, not a pristine final holdout. Future group-retraining candidate
+selection must remain validation-only. A final performance claim should use previously
+unseen cases or another pre-specified evaluation design.

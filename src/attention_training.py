@@ -33,6 +33,7 @@ from src.training import (
     _load_checkpoint,
     _save_json,
     _selected_indices,
+    _write_run_status,
     evaluate_bundle,
     load_training_dataset,
     make_data_loader,
@@ -382,8 +383,9 @@ def run_attention_training(config: AttentionTrainingConfig) -> dict[str, Any]:
         config.torch_num_threads, config.torch_interop_threads
     )
     set_deterministic_seed(config.seed)
-    device = torch.device("cpu") if config.smoke else resolve_device(config.device)
+    device = resolve_device(config.device)
     config.output_dir.mkdir(parents=True, exist_ok=True)
+    _write_run_status(config, device, "running")
     train_dataset = load_training_dataset(config, "train")
     val_dataset = load_training_dataset(config, "val")
     train_indices = _selected_indices(train_dataset, 4 if config.smoke else None)
@@ -431,6 +433,11 @@ def run_attention_training(config: AttentionTrainingConfig) -> dict[str, Any]:
         **_json_ready_config(config),
         "model_name": "FactorizedAttentionGRU",
         "resolved_device": str(device),
+        "backend": device.type,
+        "pytorch_cuda_runtime": torch.version.cuda,
+        "cuda_device_name": (
+            torch.cuda.get_device_name(device) if device.type == "cuda" else None
+        ),
         "model_parameter_count": parameter_count,
         "dynamic_feature_names": list(train_dataset.dynamic_feature_names),
         "static_feature_names": list(train_dataset.static_feature_names),
@@ -658,6 +665,16 @@ def run_attention_training(config: AttentionTrainingConfig) -> dict[str, Any]:
     )
     runtime_breakdown["total_internal_runtime_seconds"] = perf_counter() - run_started
     _save_json(attention_metadata, config.output_dir / "attention_metadata.json")
+    _write_run_status(
+        config,
+        device,
+        "complete",
+        completed_epochs=completed_epochs,
+        best_epoch=best_epoch,
+        checkpoint_reload_predictions_identical=prediction_identical,
+        checkpoint_reload_attention_identical=attention_identical,
+        test_evaluated=not config.smoke,
+    )
 
     result: dict[str, Any] = {
         "output_dir": str(config.output_dir),
