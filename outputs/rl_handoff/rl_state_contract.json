@@ -1,0 +1,64 @@
+{
+  "contract_version": 1,
+  "predictive_compact_state": {
+    "dynamic_feature_names_ordered": [
+      "bis",
+      "bis_sqi",
+      "ppf_rate",
+      "ppf_volume",
+      "ppf_cp",
+      "rftn_volume",
+      "bis_slope"
+    ],
+    "dynamic_feature_count": 7,
+    "static_covariate_names_ordered": [
+      "age",
+      "sex_male",
+      "height",
+      "weight",
+      "bmi",
+      "asa"
+    ],
+    "action_interval_seconds": 10,
+    "sampling_interval_seconds": 10,
+    "history_window_seconds": 60,
+    "history_steps": 6,
+    "prediction_horizon_seconds": 30,
+    "history_order": "oldest to newest: t-50,t-40,t-30,t-20,t-10,t",
+    "preprocessing_artifact": "data/modeling/full/preprocessing.pkl",
+    "preprocessing_sha256": "b4d1adc73832c755ad7f48a640a74d86b995e9c25062c4959f98fac65244e2ba",
+    "missing_data_policy": "use the train-fitted imputation/normalization artifact and pass the aligned observation mask; unsupported tracks must remain explicitly missing",
+    "predictive_only": true,
+    "not_an_rl_optimality_claim": true
+  },
+  "control_aware_state": {
+    "status": "blocked_pending_external_baseline_contract",
+    "blocked_missing_external_rl_implementation": true,
+    "must_begin_from_external_baseline_state": true,
+    "must_preserve_required_baseline_variables": [
+      "current and recent actions",
+      "propofol delivery and drug-history variables",
+      "BIS target or target error variables",
+      "remifentanil variables",
+      "exogenous disturbances and patient context"
+    ],
+    "must_not_replace_baseline_with_predictive_subset": true,
+    "candidate_augmentation": [
+      "bis",
+      "bis_sqi",
+      "ppf_rate",
+      "ppf_volume",
+      "ppf_cp",
+      "rftn_volume",
+      "bis_slope"
+    ]
+  },
+  "action_contract": {
+    "action_interval_seconds": 10,
+    "range": null,
+    "unit": null,
+    "blocked_reason": "External professor RL environment is unavailable."
+  },
+  "reward_contract": null,
+  "termination_contract": null
+}

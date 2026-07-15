@@ -1,0 +1,395 @@
+{
+  "audit_timestamp_utc": "2026-07-15T19:07:49.674977+00:00",
+  "repository": ".",
+  "search_terms": [
+    "gymnasium",
+    "gym.Env",
+    "reset(",
+    "step(",
+    "action_space",
+    "observation_space",
+    "propofol",
+    "pk-pd",
+    "pkpd",
+    "Schnider",
+    "Marsh",
+    "Minto",
+    "reward",
+    "actor",
+    "critic",
+    "replay_buffer",
+    "target_bis",
+    "bis_target",
+    "simulator",
+    "controller",
+    "reinforcement",
+    "stable_baselines",
+    "SAC",
+    "TD3",
+    "PPO",
+    "DDPG"
+  ],
+  "implementation_status": {
+    "gymnasium_environment_found": false,
+    "pk_pd_simulator_found": false,
+    "rl_agent_or_algorithm_found": false,
+    "baseline_policy_checkpoint_found": false
+  },
+  "professor_rl_implementation_found": false,
+  "blocked_missing_external_rl_implementation": true,
+  "rl_training_started": false,
+  "finding_count": 42,
+  "findings": [
+    {
+      "path": "main.py",
+      "line": 161,
+      "matched_terms": [
+        "propofol"
+      ],
+      "text": "def crop_to_propofol_period(group):"
+    },
+    {
+      "path": "main.py",
+      "line": 179,
+      "matched_terms": [
+        "propofol"
+      ],
+      "text": "cropped = [crop_to_propofol_period(group) for _, group in df.groupby(\"caseid\", sort=False)]"
+    },
+    {
+      "path": "main.py",
+      "line": 182,
+      "matched_terms": [
+        "propofol"
+      ],
+      "text": "print(f\"Propofol-period crop: {before:,} -> {after:,} rows kept ({after / before:.3f})\")"
+    },
+    {
+      "path": "README.md",
+      "line": 6,
+      "matched_terms": [
+        "propofol"
+      ],
+      "text": "limited within-case forward filling, propofol-period cropping, and clinical-data merging."
+    },
+    {
+      "path": "scripts/audit_prediction_dataset.py",
+      "line": 128,
+      "matched_terms": [
+        "target_bis"
+      ],
+      "text": "target_frame[\"target_bis\"] = targets"
+    },
+    {
+      "path": "scripts/audit_prediction_dataset.py",
+      "line": 131,
+      "matched_terms": [
+        "target_bis"
+      ],
+      "text": "number_of_windows=(\"target_bis\", \"size\"),"
+    },
+    {
+      "path": "scripts/audit_prediction_dataset.py",
+      "line": 132,
+      "matched_terms": [
+        "target_bis"
+      ],
+      "text": "mean_target_bis=(\"target_bis\", \"mean\"),"
+    },
+    {
+      "path": "scripts/audit_prediction_dataset.py",
+      "line": 136,
+      "matched_terms": [
+        "target_bis"
+      ],
+      "text": "summary[\"bis_below_40_prevalence\"] = grouped[\"target_bis\"].apply("
+    },
+    {
+      "path": "scripts/audit_prediction_dataset.py",
+      "line": 139,
+      "matched_terms": [
+        "target_bis"
+      ],
+      "text": "summary[\"bis_40_to_60_prevalence\"] = grouped[\"target_bis\"].apply("
+    },
+    {
+      "path": "scripts/audit_prediction_dataset.py",
+      "line": 142,
+      "matched_terms": [
+        "target_bis"
+      ],
+      "text": "summary[\"bis_above_60_prevalence\"] = grouped[\"target_bis\"].apply("
+    },
+    {
+      "path": "scripts/audit_prediction_dataset.py",
+      "line": 459,
+      "matched_terms": [
+        "target_bis"
+      ],
+      "text": "\"target_bis_standardized_mean_difference_train_val\": _smd("
+    },
+    {
+      "path": "scripts/audit_prediction_dataset.py",
+      "line": 462,
+      "matched_terms": [
+        "target_bis"
+      ],
+      "text": "\"target_bis_standardized_mean_difference_train_test\": _smd("
+    },
+    {
+      "path": "scripts/audit_prediction_dataset.py",
+      "line": 584,
+      "matched_terms": [
+        "target_bis"
+      ],
+      "text": "and abs(comparisons[\"target_bis_standardized_mean_difference_train_val\"]) <= 0.50"
+    },
+    {
+      "path": "scripts/audit_prediction_dataset.py",
+      "line": 585,
+      "matched_terms": [
+        "target_bis"
+      ],
+      "text": "and abs(comparisons[\"target_bis_standardized_mean_difference_train_test\"]) <= 0.50"
+    },
+    {
+      "path": "src/group_retraining_analysis.py",
+      "line": 979,
+      "matched_terms": [
+        "propofol"
+      ],
+      "text": "This analysis compares physiological feature-group ablations as candidate RL state representations. Future-BIS prediction is an intermediate screening task, not the final propofol-control objective."
+    },
+    {
+      "path": "src/group_retraining_analysis.py",
+      "line": 1024,
+      "matched_terms": [
+        "propofol"
+      ],
+      "text": "- Any selected state representation needs separate closed-loop control validation in the propofol RL framework."
+    },
+    {
+      "path": "src/io.py",
+      "line": 228,
+      "matched_terms": [
+        "target_bis"
+      ],
+      "text": "split_frame[\"target_bis\"] = split_frame[\"bis\"]"
+    },
+    {
+      "path": "src/io.py",
+      "line": 295,
+      "matched_terms": [
+        "bis_target"
+      ],
+      "text": "\"bis_target_statistics\": target_summaries,"
+    },
+    {
+      "path": "src/predictive_feature_selection.py",
+      "line": 1419,
+      "matched_terms": [
+        "propofol"
+      ],
+      "text": "- Predictive utility for future BIS does not guarantee improved closed-loop propofol control."
+    },
+    {
+      "path": "src/redundancy_audit.py",
+      "line": 49,
+      "matched_terms": [
+        "propofol"
+      ],
+      "text": "\"propofol\": (\"ppf_rate\", \"ppf_volume\", \"ppf_cp\", \"ppf_ce\"),"
+    },
+    {
+      "path": "src/runtime_benchmark.py",
+      "line": 234,
+      "matched_terms": [
+        "step("
+      ],
+      "text": "def step(batch: dict[str, torch.Tensor]) -> None:"
+    },
+    {
+      "path": "src/runtime_benchmark.py",
+      "line": 246,
+      "matched_terms": [
+        "step("
+      ],
+      "text": "optimizer.step()"
+    },
+    {
+      "path": "src/runtime_benchmark.py",
+      "line": 250,
+      "matched_terms": [
+        "step("
+      ],
+      "text": "step(next(iterator))"
+    },
+    {
+      "path": "src/runtime_benchmark.py",
+      "line": 262,
+      "matched_terms": [
+        "step("
+      ],
+      "text": "step(batch)"
+    },
+    {
+      "path": "src/training.py",
+      "line": 271,
+      "matched_terms": [
+        "step("
+      ],
+      "text": "optimizer.step()"
+    },
+    {
+      "path": "src/windows.py",
+      "line": 95,
+      "matched_terms": [
+        "target_bis"
+      ],
+      "text": "if target_time not in timestamps or pd.isna(case_frame.at[target_time, \"target_bis\"]):"
+    },
+    {
+      "path": "src/windows.py",
+      "line": 110,
+      "matched_terms": [
+        "target_bis"
+      ],
+      "text": "targets.append(float(case_frame.at[target_time, \"target_bis\"]))"
+    },
+    {
+      "path": "tests/test_windows.py",
+      "line": 31,
+      "matched_terms": [
+        "target_bis"
+      ],
+      "text": "\"target_bis\": target,"
+    },
+    {
+      "path": "tests/test_windows.py",
+      "line": 64,
+      "matched_terms": [
+        "target_bis"
+      ],
+      "text": "frame.loc[(frame.caseid == 1) & (frame.timestamp == 80), \"target_bis\"] = np.nan"
+    },
+    {
+      "path": "outputs/frozen_predictive_decision_30s/frozen_predictive_decision.json",
+      "line": 78,
+      "matched_terms": [
+        "propofol"
+      ],
+      "text": "\"predictive_control_warning\": \"Future-BIS predictive utility does not establish an RL-optimal propofol-control state.\","
+    },
+    {
+      "path": "outputs/ablations/no_bis_error/redundancy_audit.json",
+      "line": 836,
+      "matched_terms": [
+        "propofol"
+      ],
+      "text": "\"group\": \"propofol\","
+    },
+    {
+      "path": "outputs/ablations/no_bis_error/redundancy_audit.json",
+      "line": 884,
+      "matched_terms": [
+        "propofol"
+      ],
+      "text": "\"group\": \"propofol\","
+    },
+    {
+      "path": "outputs/ablations/no_bis_error/redundancy_audit.json",
+      "line": 922,
+      "matched_terms": [
+        "propofol"
+      ],
+      "text": "\"propofol\": 0.17159608940710314,"
+    },
+    {
+      "path": "outputs/ablations/no_bis_error/faithfulness/faithfulness_audit.json",
+      "line": 44,
+      "matched_terms": [
+        "propofol"
+      ],
+      "text": "\"propofol\": ["
+    },
+    {
+      "path": "outputs/ablations/no_bis_error/faithfulness/faithfulness_audit.json",
+      "line": 306,
+      "matched_terms": [
+        "propofol"
+      ],
+      "text": "\"item\": \"propofol\","
+    },
+    {
+      "path": "outputs/ablations/no_bis_error/faithfulness/faithfulness_audit.json",
+      "line": 370,
+      "matched_terms": [
+        "propofol"
+      ],
+      "text": "\"item\": \"propofol\","
+    },
+    {
+      "path": "outputs/ablations/no_bis_error/faithfulness/faithfulness_audit.json",
+      "line": 450,
+      "matched_terms": [
+        "propofol"
+      ],
+      "text": "\"item\": \"propofol\","
+    },
+    {
+      "path": "outputs/ablations/no_bis_error/faithfulness/faithfulness_audit.json",
+      "line": 498,
+      "matched_terms": [
+        "propofol"
+      ],
+      "text": "\"item\": \"propofol\","
+    },
+    {
+      "path": "outputs/ablations/no_bis_error/multiseed/multiseed_audit.json",
+      "line": 1171,
+      "matched_terms": [
+        "propofol"
+      ],
+      "text": "\"metric\": \"group_propofol\","
+    },
+    {
+      "path": "outputs/ablations/no_bis_error/multiseed/multiseed_audit.json",
+      "line": 1275,
+      "matched_terms": [
+        "propofol"
+      ],
+      "text": "\"metric\": \"group_propofol\","
+    },
+    {
+      "path": "outputs/ablations/no_bis_error/multiseed/multiseed_audit.json",
+      "line": 1379,
+      "matched_terms": [
+        "propofol"
+      ],
+      "text": "\"metric\": \"group_propofol\","
+    },
+    {
+      "path": "outputs/ablations/no_bis_error/multiseed/multiseed_audit.json",
+      "line": 1486,
+      "matched_terms": [
+        "propofol"
+      ],
+      "text": "\"metric\": \"propofol_high_minus_overall\","
+    }
+  ],
+  "conclusion": "No Gymnasium environment, PK-PD simulator, RL agent, reward, action contract, or baseline policy checkpoint is implemented in this repository. The propofol references in main.py crop observational data and are not a control environment.",
+  "required_external_inputs": [
+    "professor RL repository or attached implementation",
+    "environment class and module path",
+    "reset() and step() API contracts",
+    "ordered baseline state schema and history construction",
+    "action range, unit, clipping, and 10-second hold semantics",
+    "reward definition and all coefficients",
+    "episode termination and truncation rules",
+    "patient-level train/validation/test split identifiers",
+    "RL algorithm and hyperparameters",
+    "baseline policy checkpoint and compatibility metadata",
+    "closed-loop evaluation metrics and protocol",
+    "random seeds and determinism settings"
+  ]
+}

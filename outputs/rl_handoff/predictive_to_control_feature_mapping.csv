@@ -1,0 +1,8 @@
+predictive_feature,predictive_order,predictive_role,candidate_control_input,required_by_external_baseline,control_caution
+bis,1,feedback,True,unknown_pending_external_contract,Current controlled physiological output.
+bis_sqi,2,quality,True,unknown_pending_external_contract,Quality signal for BIS reliability.
+ppf_rate,3,action_or_exposure,True,unknown_pending_external_contract,May overlap the propofol action; use external action semantics.
+ppf_volume,4,drug_history,True,unknown_pending_external_contract,Cumulative exposure is not a substitute for the full action history.
+ppf_cp,5,pk_state,True,unknown_pending_external_contract,Observed/model-derived concentration provenance must match the simulator.
+rftn_volume,6,co_medication_history,True,unknown_pending_external_contract,Only retained remifentanil feature; external baseline remifentanil state must remain.
+bis_slope,7,derived_feedback,True,unknown_pending_external_contract,Derivation must use only causal 10-second history.

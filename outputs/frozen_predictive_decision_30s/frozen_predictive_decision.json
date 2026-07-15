@@ -1,0 +1,81 @@
+{
+  "decision_artifact_version": 1,
+  "decision_timestamp_utc": "2026-07-15T18:53:25.5910727Z",
+  "decision_code_commit": "00d27c03fd9cfd79e99a7a474631b85ea6d02735",
+  "source_analysis_manifest": "outputs/frozen_candidate_retraining_validation_only/analysis/analysis_manifest.json",
+  "source_analysis_manifest_sha256": "1a2e90aa7b96d793aa9286ea802a0d7e5d78dc7b0923f109af8cb80b434ec23a",
+  "source_analysis_git_commit": "00d27c03fd9cfd79e99a7a474631b85ea6d02735",
+  "source_analysis_run_count": 50,
+  "source_analysis_test_split_sealed": true,
+  "source_analysis_test_split_read": false,
+  "primary_candidate": "strict_consensus",
+  "reference_candidate": "full17_reference",
+  "secondary_validation_only_candidate": "compact_consensus",
+  "test_evaluation_candidates": [
+    "strict_consensus",
+    "full17_reference"
+  ],
+  "models": [
+    "gru",
+    "attention"
+  ],
+  "seeds": [
+    7,
+    21,
+    42,
+    84,
+    123
+  ],
+  "primary_dynamic_feature_names": [
+    "bis",
+    "bis_sqi",
+    "ppf_rate",
+    "ppf_volume",
+    "ppf_cp",
+    "rftn_volume",
+    "bis_slope"
+  ],
+  "reference_dynamic_feature_names": [
+    "bis",
+    "bis_sqi",
+    "hr",
+    "mbp",
+    "sbp",
+    "dbp",
+    "spo2",
+    "etco2",
+    "ppf_rate",
+    "ppf_volume",
+    "ppf_cp",
+    "ppf_ce",
+    "rftn_rate",
+    "rftn_volume",
+    "rftn_cp",
+    "rftn_ce",
+    "bis_slope"
+  ],
+  "primary_metric": "validation_patient_level_mae",
+  "primary_metric_direction": "lower is better",
+  "validation_evidence": {
+    "strict_consensus_gru_mean_patient_mae": 3.368612,
+    "full17_reference_gru_mean_patient_mae": 3.393851,
+    "strict_minus_full17_gru_paired_mean_delta": -0.025239,
+    "strict_better_gru_seed_count": 5,
+    "paired_seed_count": 5,
+    "strict_consensus_gru_decision_aids": [
+      "best observed validation candidate",
+      "simplest non-dominated candidate",
+      "most seed-consistent candidate"
+    ],
+    "strict_consensus_attention_non_dominated": true,
+    "compact_consensus_attention_mean_patient_mae": 3.362493,
+    "compact_consensus_role": "secondary validation-only evidence; excluded from held-out test"
+  },
+  "pre_test_freeze": true,
+  "candidate_changes_after_test_prohibited": true,
+  "test_results_must_not_change_primary_candidate": true,
+  "checkpoint_policy": "validation-selected best_model.pt only; no retraining, reselection, or test tuning",
+  "predictive_control_warning": "Future-BIS predictive utility does not establish an RL-optimal propofol-control state.",
+  "remifentanil_control_caution": "strict_consensus retains only rftn_volume; preserve all action, drug-history, target, remifentanil, and exogenous variables required by the external RL baseline.",
+  "generalization_scope": "internal held-out patient split; not pristine external validation"
+}
