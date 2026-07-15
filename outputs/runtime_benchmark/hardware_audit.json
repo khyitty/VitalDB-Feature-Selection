@@ -1,0 +1,32 @@
+{
+  "operating_system": "Windows-11-10.0.26200-SP0",
+  "cpu_model": "11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz",
+  "physical_cpu_core_count": 4,
+  "logical_cpu_core_count": 8,
+  "total_system_ram_bytes": 16890650624,
+  "total_system_ram_gib": 15.730644226074219,
+  "windows_video_controllers": [
+    {
+      "Name": "Intel(R) Iris(R) Xe Graphics",
+      "AdapterRAM": 1073741824,
+      "DriverVersion": "30.0.100.9836"
+    }
+  ],
+  "torch_version": "2.12.0+cpu",
+  "torch_version_cuda": null,
+  "torch_cuda_is_available": false,
+  "torch_cuda_device_count": 0,
+  "torch_cuda_device_names": [],
+  "installed_pytorch_build_is_cpu_only": true,
+  "nvidia_smi_path": null,
+  "nvidia_smi_query_output": null,
+  "nvidia_driver_appears_available": false,
+  "requirements": {
+    "torch_requirement_lines": [
+      "torch"
+    ],
+    "explicitly_forces_cpu_only": false
+  },
+  "hardware_classification": "C. NO PRACTICAL CUDA GPU",
+  "automatic_environment_changes_performed": false
+}

@@ -60,6 +60,8 @@ class TrainingConfig:
     dropout: float = 0.0
     case_balanced_sampling: bool = True
     num_workers: int = 0
+    torch_num_threads: int | None = None
+    torch_interop_threads: int | None = None
     smoke: bool = False
     resume_checkpoint: Path | None = None
     dynamic_features: tuple[str, ...] | None = None
@@ -90,6 +92,30 @@ def set_deterministic_seed(seed: int) -> None:
     if hasattr(torch.backends, "cudnn"):
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
+
+
+def configure_torch_threads(
+    torch_num_threads: int | None = None,
+    torch_interop_threads: int | None = None,
+) -> None:
+    """Apply optional PyTorch CPU thread limits without changing legacy defaults."""
+
+    for name, value in (
+        ("torch_num_threads", torch_num_threads),
+        ("torch_interop_threads", torch_interop_threads),
+    ):
+        if value is not None and value <= 0:
+            raise ValueError(f"{name} must be positive when provided.")
+    if torch_interop_threads is not None:
+        try:
+            torch.set_num_interop_threads(torch_interop_threads)
+        except RuntimeError as error:
+            if torch.get_num_interop_threads() != torch_interop_threads:
+                raise RuntimeError(
+                    "PyTorch interop threads must be configured before parallel work."
+                ) from error
+    if torch_num_threads is not None:
+        torch.set_num_threads(torch_num_threads)
 
 
 def resolve_device(requested: str) -> torch.device:
@@ -467,6 +493,9 @@ def run_gru_training(config: TrainingConfig) -> dict[str, Any]:
     """Train, select, reload, and evaluate the compact GRU baseline."""
 
     run_started = perf_counter()
+    configure_torch_threads(
+        config.torch_num_threads, config.torch_interop_threads
+    )
     set_deterministic_seed(config.seed)
     device = resolve_device(config.device)
     config.output_dir.mkdir(parents=True, exist_ok=True)

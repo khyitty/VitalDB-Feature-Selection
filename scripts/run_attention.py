@@ -25,7 +25,7 @@ def _feature_names(value: str) -> tuple[str, ...]:
     return names
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset-dir", type=Path, default=Path("data/modeling/full"))
     parser.add_argument("--output-dir", type=Path)
@@ -43,6 +43,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prediction-hidden-size", type=int, default=32)
     parser.add_argument("--dropout", type=float, default=0.0)
     parser.add_argument("--num-workers", type=int, default=0)
+    parser.add_argument("--torch-num-threads", type=int)
+    parser.add_argument("--torch-interop-threads", type=int)
     parser.add_argument("--resume", type=Path)
     parser.add_argument("--smoke", action="store_true")
     feature_group = parser.add_mutually_exclusive_group()
@@ -53,7 +55,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Disable default equal-case expected sampling mass.",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def main() -> None:
@@ -78,6 +80,8 @@ def main() -> None:
         dropout=args.dropout,
         case_balanced_sampling=not args.uniform_window_sampling,
         num_workers=args.num_workers,
+        torch_num_threads=args.torch_num_threads,
+        torch_interop_threads=args.torch_interop_threads,
         smoke=args.smoke,
         resume_checkpoint=args.resume,
         feature_token_embedding_dim=args.feature_token_dim,

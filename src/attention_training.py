@@ -38,6 +38,7 @@ from src.training import (
     make_data_loader,
     predict_model,
     prediction_frame,
+    configure_torch_threads,
     resolve_device,
     set_deterministic_seed,
     train_epoch,
@@ -377,6 +378,9 @@ def run_attention_training(config: AttentionTrainingConfig) -> dict[str, Any]:
     run_started = perf_counter()
     checkpoint_save_seconds = 0.0
     serialization_seconds = 0.0
+    configure_torch_threads(
+        config.torch_num_threads, config.torch_interop_threads
+    )
     set_deterministic_seed(config.seed)
     device = torch.device("cpu") if config.smoke else resolve_device(config.device)
     config.output_dir.mkdir(parents=True, exist_ok=True)

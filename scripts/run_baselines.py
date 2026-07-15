@@ -26,7 +26,7 @@ def _feature_names(value: str) -> tuple[str, ...]:
     return names
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="baseline", required=True)
 
@@ -49,6 +49,8 @@ def parse_args() -> argparse.Namespace:
     gru.add_argument("--hidden-size", type=int, default=64)
     gru.add_argument("--dropout", type=float, default=0.0)
     gru.add_argument("--num-workers", type=int, default=0)
+    gru.add_argument("--torch-num-threads", type=int)
+    gru.add_argument("--torch-interop-threads", type=int)
     gru.add_argument("--resume", type=Path)
     gru.add_argument("--smoke", action="store_true")
     feature_group = gru.add_mutually_exclusive_group()
@@ -59,7 +61,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Disable default equal-case expected sampling mass.",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def main() -> None:
@@ -89,6 +91,8 @@ def main() -> None:
         dropout=args.dropout,
         case_balanced_sampling=not args.uniform_window_sampling,
         num_workers=args.num_workers,
+        torch_num_threads=args.torch_num_threads,
+        torch_interop_threads=args.torch_interop_threads,
         smoke=args.smoke,
         resume_checkpoint=args.resume,
         dynamic_features=args.dynamic_features,

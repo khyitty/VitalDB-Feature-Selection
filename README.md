@@ -146,3 +146,27 @@ The five-seed diagnostic found effectively preserved prediction performance but
 unstable individual and grouped attention rankings. The multiseed outputs must
 therefore be treated as reproducibility diagnostics, not causal importance or a basis
 for top-k selection.
+
+Run the validation-only unavailable-ablation, within-patient permutation, and
+attention-faithfulness audit from the existing five-seed checkpoints:
+
+```powershell
+python scripts/audit_attention_faithfulness.py --root-dir outputs/ablations/no_bis_error --dataset-dir data/modeling/full --output-dir outputs/ablations/no_bis_error/faithfulness --seeds 7,21,42,84,123 --batch-size 1024 --permutation-repetitions 10
+```
+
+This audit does not read test labels or test importance for development decisions.
+Unavailable ablation sets normalized values and observation masks to zero and may
+induce distribution shift. Within-patient permutation preserves complete six-step
+trajectories and masks but remains an association diagnostic, not causal evidence.
+
+Audit local hardware and benchmark short deterministic CPU training workloads with:
+
+```powershell
+python scripts/benchmark_training_runtime.py --dataset-dir data/modeling/full --output-dir outputs/runtime_benchmark --thread-counts 1,2,4,8 --worker-counts 0,2 --measured-batches 20 --warmup-batches 3 --batch-size 256 --seed 42
+```
+
+Future training commands may set `--torch-num-threads`,
+`--torch-interop-threads`, and `--num-workers`; omitting them preserves historical
+defaults. Every future paired comparison must use the same device and backend for all
+models and seeds. Completed historical experiments should not be rerun only to adopt
+a faster device or thread configuration.
