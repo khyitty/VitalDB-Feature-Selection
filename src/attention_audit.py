@@ -687,9 +687,11 @@ def _plot_diagnostics(
     )
     fig, axis = plt.subplots(figsize=(7, 4))
     axis.bar(
-        validation_time["time_lag_seconds"].astype(str),
+        validation_time["time_lag_seconds"],
         validation_time["mean_temporal_attention"],
+        width=7,
     )
+    axis.set_xticks(list(TIME_LAGS))
     axis.set_xlabel("Time lag (seconds)")
     axis.set_ylabel("Case-balanced mean temporal attention")
     axis.set_title(f"Validation temporal attention\n{DIAGNOSTIC_LABEL}")
@@ -700,6 +702,10 @@ def _plot_diagnostics(
     matrix = heatmap.pivot(
         index="feature", columns="time_lag_seconds", values="mean_combined_attention"
     )
+    ranked_features = feature_summary.loc[
+        feature_summary["split"] == "val"
+    ].sort_values("validation_rank")["feature"]
+    matrix = matrix.reindex(index=ranked_features, columns=TIME_LAGS)
     fig, axis = plt.subplots(figsize=(9, 7))
     image = axis.imshow(matrix.to_numpy(), aspect="auto", cmap="viridis")
     axis.set_xticks(range(len(matrix.columns)), matrix.columns)
@@ -721,6 +727,27 @@ def run_attention_audit(
 ) -> dict[str, Any]:
     """Create the complete one-seed attention audit and source tables."""
 
+    required_training_artifacts = (
+        "config.json",
+        "best_model.pt",
+        "last_model.pt",
+        "training_history.csv",
+        "val_predictions.csv",
+        "test_predictions.csv",
+        "val_metrics.json",
+        "test_metrics.json",
+        "case_metrics.csv",
+        "val_attention.npz",
+        "test_attention.npz",
+        "attention_metadata.json",
+    )
+    missing_artifacts = [
+        name for name in required_training_artifacts if not (run_dir / name).is_file()
+    ]
+    if missing_artifacts:
+        raise FileNotFoundError(
+            f"Completed attention run is missing artifacts: {missing_artifacts}"
+        )
     run_config = load_json(run_dir / "config.json")
     dataset_metadata = load_json(dataset_dir / "dataset_metadata.json")
     attention_metadata = load_json(run_dir / "attention_metadata.json")
@@ -1043,7 +1070,17 @@ def run_attention_audit(
                 > best["validation_patient_level_mae"]
             ),
             "prediction_collapsed": prediction_collapsed,
-            "attention_numerically_unstable": not normalization_valid,
+            "selected_checkpoint_attention_numerically_unstable": (
+                not normalization_valid
+            ),
+            "per_epoch_attention_stability_not_recorded": True,
+            "fit_pattern": (
+                "mild overfitting after the best epoch"
+                if int(last["epoch"]) > best_epoch
+                and last["validation_patient_level_mae"]
+                > best["validation_patient_level_mae"]
+                else "no post-best validation deterioration detected"
+            ),
         },
         "performance": performance,
         "comparison": model_comparison_json,

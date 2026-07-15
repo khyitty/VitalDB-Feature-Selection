@@ -1,0 +1,75 @@
+{
+  "pooled_window": {
+    "regression": {
+      "mae": 3.166980006014997,
+      "rmse": 4.468997666482848,
+      "r_squared": 0.807836583520217
+    },
+    "bis_region_mae": {
+      "bis_below_40": 3.1222500525189862,
+      "bis_40_to_60": 3.0558757681666724,
+      "bis_above_60": 4.220045328878397
+    },
+    "high_bis_classification": {
+      "auprc": 0.8171894689499624,
+      "auroc": 0.9781041742774911
+    },
+    "low_bis_classification": {
+      "auprc": 0.8900438282381238,
+      "auroc": 0.9300750830245937
+    },
+    "high_bis_threshold_metrics": {
+      "threshold": 59.20396041870117,
+      "f1": 0.7721766314966785,
+      "sensitivity": 0.7647058823529411,
+      "specificity": 0.9822812142766417
+    },
+    "low_bis_threshold_metrics": {
+      "threshold": -40.10435104370117,
+      "f1": 0.8099597843758022,
+      "sensitivity": 0.8078170336234852,
+      "specificity": 0.9020484837642008
+    }
+  },
+  "patient_level": {
+    "number_of_evaluated_cases": 15,
+    "number_of_cases_auprc_defined": 15,
+    "number_of_cases_auroc_defined": 15,
+    "mae": {
+      "count_defined": 15,
+      "mean": 3.368623145467883,
+      "median": 3.3176462904216506,
+      "standard_deviation": 0.6272663987951923,
+      "interquartile_range": 1.0339040805478055
+    },
+    "rmse": {
+      "count_defined": 15,
+      "mean": 4.741400821785209,
+      "median": 4.836254664468722,
+      "standard_deviation": 0.9014366314116926,
+      "interquartile_range": 1.5103808677242236
+    },
+    "high_bis_auprc": {
+      "count_defined": 15,
+      "mean": 0.7312499967451891,
+      "median": 0.8422038080107147,
+      "standard_deviation": 0.24859784743289734,
+      "interquartile_range": 0.22761706056341202
+    },
+    "high_bis_auroc": {
+      "count_defined": 15,
+      "mean": 0.9645267636513605,
+      "median": 0.9703022261536193,
+      "standard_deviation": 0.02721038097195221,
+      "interquartile_range": 0.03685722273456293
+    }
+  },
+  "mean_huber_loss": 2.7150495198428146,
+  "thresholds_selected_on_validation": {
+    "high_bis_score": 59.20396041870117,
+    "low_bis_score": -40.10435104370117
+  },
+  "checkpoint_reload_predictions_identical": true,
+  "checkpoint_reload_attention_identical": true,
+  "model_parameter_count": 25011
+}

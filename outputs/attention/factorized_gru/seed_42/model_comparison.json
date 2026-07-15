@@ -1,0 +1,285 @@
+{
+  "models": [
+    "persistence",
+    "gru_seed_42",
+    "factorized_attention_gru_seed_42"
+  ],
+  "row_alignment_verified": true,
+  "splits": {
+    "val": {
+      "models": {
+        "persistence": {
+          "pooled_mae": 3.3314561726728487,
+          "pooled_rmse": 4.743367177998911,
+          "r_squared": 0.7835169274090373,
+          "patient_mean_mae": 3.4980235235370785,
+          "patient_median_mae": 3.246997685142417,
+          "patient_mae_standard_deviation": 0.7078827768929792,
+          "patient_mae_interquartile_range": 1.0554878389785798,
+          "patient_mean_rmse": 4.989662248572927,
+          "bis_below_40_mae": 3.079535690561529,
+          "bis_40_to_60_mae": 3.3699858772125015,
+          "bis_above_60_mae": 4.179024993034055,
+          "high_bis_auprc": 0.7901357654345039,
+          "high_bis_auroc": 0.9744334302406743,
+          "low_bis_auprc": 0.8796624402483704,
+          "low_bis_auroc": 0.9236077932496043
+        },
+        "gru_seed_42": {
+          "pooled_mae": 3.205640497534922,
+          "pooled_rmse": 4.463544894237956,
+          "r_squared": 0.8083052276281153,
+          "patient_mean_mae": 3.386568205232208,
+          "patient_median_mae": 3.1978058205128206,
+          "patient_mae_standard_deviation": 0.6561378858972763,
+          "patient_mae_interquartile_range": 0.9718677805860962,
+          "patient_mean_rmse": 4.701216830214276,
+          "bis_below_40_mae": 2.9228022933947777,
+          "bis_40_to_60_mae": 3.144504977040558,
+          "bis_above_60_mae": 4.956101743034056,
+          "high_bis_auprc": 0.8233386500570506,
+          "high_bis_auroc": 0.9790434270200423,
+          "low_bis_auprc": 0.8886503114730216,
+          "low_bis_auroc": 0.9301034275049493
+        },
+        "factorized_attention_gru_seed_42": {
+          "pooled_mae": 3.1669800270571664,
+          "pooled_rmse": 4.468997687672255,
+          "r_squared": 0.8078365819718192,
+          "patient_mean_mae": 3.368623176113309,
+          "patient_median_mae": 3.3176463305670816,
+          "patient_mae_standard_deviation": 0.6272663874415333,
+          "patient_mae_interquartile_range": 1.0339040450167243,
+          "patient_mean_rmse": 4.741400862946937,
+          "bis_below_40_mae": 3.1222500735620415,
+          "bis_40_to_60_mae": 3.0558757893193085,
+          "bis_above_60_mae": 4.220045349071207,
+          "high_bis_auprc": 0.8171894689499624,
+          "high_bis_auroc": 0.9781041742774911,
+          "low_bis_auprc": 0.8900438282381238,
+          "low_bis_auroc": 0.9300750830245937
+        }
+      },
+      "differences": {
+        "attention_minus_gru_seed_42": {
+          "pooled_mae": -0.03866047047775556,
+          "pooled_rmse": 0.005452793434298719,
+          "patient_mean_mae": -0.017945029118898947,
+          "bis_below_40_mae": 0.19944778016726383,
+          "bis_40_to_60_mae": -0.08862918772124972,
+          "bis_above_60_mae": -0.7360563939628486,
+          "high_bis_auprc": -0.006149181107088286,
+          "high_bis_auroc": -0.0009392527425512442,
+          "low_bis_auprc": 0.0013935167651021318,
+          "low_bis_auroc": -2.834448035560211e-05
+        },
+        "attention_minus_persistence": {
+          "pooled_mae": -0.16447614561568225,
+          "pooled_rmse": -0.2743694903266558,
+          "patient_mean_mae": -0.12940034742376927,
+          "bis_below_40_mae": 0.042714383000512335,
+          "bis_40_to_60_mae": -0.31411008789319306,
+          "bis_above_60_mae": 0.04102035603715226,
+          "high_bis_auprc": 0.027053703515458438,
+          "high_bis_auroc": 0.0036707440368167754,
+          "low_bis_auprc": 0.01038138798975341,
+          "low_bis_auroc": 0.006467289774989449
+        }
+      },
+      "difference_direction": {
+        "pooled_mae": "negative favors attention",
+        "pooled_rmse": "negative favors attention",
+        "patient_mean_mae": "negative favors attention",
+        "bis_below_40_mae": "negative favors attention",
+        "bis_40_to_60_mae": "negative favors attention",
+        "bis_above_60_mae": "negative favors attention",
+        "high_bis_auprc": "positive favors attention",
+        "high_bis_auroc": "positive favors attention",
+        "low_bis_auprc": "positive favors attention",
+        "low_bis_auroc": "positive favors attention"
+      },
+      "inference_timing": {
+        "persistence_prediction_seconds": 0.00013509998098015785,
+        "gru_prediction_seconds": 0.9113106000004336,
+        "attention_prediction_seconds": 1.1486014999682084,
+        "attention_prediction_including_extraction_seconds": 1.2232449000002816,
+        "attention_shared_forward_with_extraction_seconds": 0.4282946995808743,
+        "single_pass_diagnostic": true,
+        "batch_size": 256,
+        "window_count": 17038
+      }
+    },
+    "test": {
+      "models": {
+        "persistence": {
+          "pooled_mae": 3.3734448562441206,
+          "pooled_rmse": 4.736802832727691,
+          "r_squared": 0.7839569309638809,
+          "patient_mean_mae": 3.4964561526000297,
+          "patient_median_mae": 3.369527899141631,
+          "patient_mae_standard_deviation": 0.6423631929227767,
+          "patient_mae_interquartile_range": 0.8415602842289909,
+          "patient_mean_rmse": 4.851500114450443,
+          "bis_below_40_mae": 3.0031235462734274,
+          "bis_40_to_60_mae": 3.553118112272121,
+          "bis_above_60_mae": 4.1994687404782995,
+          "high_bis_auprc": 0.8401844446319434,
+          "high_bis_auroc": 0.9804923092267023,
+          "low_bis_auprc": 0.8673514732756353,
+          "low_bis_auroc": 0.8994170572335132
+        },
+        "gru_seed_42": {
+          "pooled_mae": 3.174414620413923,
+          "pooled_rmse": 4.3704286272718615,
+          "r_squared": 0.8160847308765412,
+          "patient_mean_mae": 3.293206405649386,
+          "patient_median_mae": 3.361020431330472,
+          "patient_mae_standard_deviation": 0.5031355712751188,
+          "patient_mae_interquartile_range": 0.5311008180912324,
+          "patient_mean_rmse": 4.499126305177183,
+          "bis_below_40_mae": 2.7291128218799945,
+          "bis_40_to_60_mae": 3.3558656535126725,
+          "bis_above_60_mae": 4.443394944198406,
+          "high_bis_auprc": 0.8741609430215174,
+          "high_bis_auroc": 0.9860819123094933,
+          "low_bis_auprc": 0.8800339023445312,
+          "low_bis_auroc": 0.908343497936408
+        },
+        "factorized_attention_gru_seed_42": {
+          "pooled_mae": 3.1533778229068674,
+          "pooled_rmse": 4.4099874504158825,
+          "r_squared": 0.8127402541211586,
+          "patient_mean_mae": 3.2887390042168856,
+          "patient_median_mae": 3.253472408798283,
+          "patient_mae_standard_deviation": 0.5398013175877973,
+          "patient_mae_interquartile_range": 0.6722042626888736,
+          "patient_mean_rmse": 4.550815831059128,
+          "bis_below_40_mae": 2.887765392706669,
+          "bis_40_to_60_mae": 3.2045424744330813,
+          "bis_above_60_mae": 4.365010375553587,
+          "high_bis_auprc": 0.8626413418974795,
+          "high_bis_auroc": 0.9836798059461078,
+          "low_bis_auprc": 0.8810936045628109,
+          "low_bis_auroc": 0.9087069268891149
+        }
+      },
+      "differences": {
+        "attention_minus_gru_seed_42": {
+          "pooled_mae": -0.02103679750705556,
+          "pooled_rmse": 0.03955882314402093,
+          "patient_mean_mae": -0.004467401432500573,
+          "bis_below_40_mae": 0.1586525708266744,
+          "bis_40_to_60_mae": -0.15132317907959125,
+          "bis_above_60_mae": -0.07838456864481902,
+          "high_bis_auprc": -0.011519601124037826,
+          "high_bis_auroc": -0.002402106363385448,
+          "low_bis_auprc": 0.0010597022182797788,
+          "low_bis_auroc": 0.00036342895270691233
+        },
+        "attention_minus_persistence": {
+          "pooled_mae": -0.2200670333372532,
+          "pooled_rmse": -0.32681538231180873,
+          "patient_mean_mae": -0.20771714838314415,
+          "bis_below_40_mae": -0.11535815356675849,
+          "bis_40_to_60_mae": -0.34857563783903966,
+          "bis_above_60_mae": 0.16554163507528763,
+          "high_bis_auprc": 0.022456897265536124,
+          "high_bis_auroc": 0.003187496719405547,
+          "low_bis_auprc": 0.013742131287175607,
+          "low_bis_auroc": 0.009289869655601746
+        }
+      },
+      "difference_direction": {
+        "pooled_mae": "negative favors attention",
+        "pooled_rmse": "negative favors attention",
+        "patient_mean_mae": "negative favors attention",
+        "bis_below_40_mae": "negative favors attention",
+        "bis_40_to_60_mae": "negative favors attention",
+        "bis_above_60_mae": "negative favors attention",
+        "high_bis_auprc": "positive favors attention",
+        "high_bis_auroc": "positive favors attention",
+        "low_bis_auprc": "positive favors attention",
+        "low_bis_auroc": "positive favors attention"
+      },
+      "inference_timing": {
+        "persistence_prediction_seconds": 0.0001474000164307654,
+        "gru_prediction_seconds": 0.9593754999805242,
+        "attention_prediction_seconds": 1.1070304000168107,
+        "attention_prediction_including_extraction_seconds": 1.2135143000050448,
+        "attention_shared_forward_with_extraction_seconds": 0.4197211003629491,
+        "single_pass_diagnostic": true,
+        "batch_size": 256,
+        "window_count": 17008
+      }
+    }
+  },
+  "test_patient_comparison": {
+    "case_count": 15,
+    "patients_attention_mae_lower_than_gru": 9,
+    "patients_attention_mae_lower_than_persistence": 14,
+    "median_attention_minus_gru_mae": -0.016767062150055523,
+    "five_largest_improvements_relative_to_gru": [
+      {
+        "case_id": 38,
+        "attention_minus_gru_mae": -0.17499632037037038
+      },
+      {
+        "case_id": 30,
+        "attention_minus_gru_mae": -0.10754802253218898
+      },
+      {
+        "case_id": 154,
+        "attention_minus_gru_mae": -0.10274896806083644
+      },
+      {
+        "case_id": 17,
+        "attention_minus_gru_mae": -0.04885170370370373
+      },
+      {
+        "case_id": 44,
+        "attention_minus_gru_mae": -0.02334975403535733
+      }
+    ],
+    "five_largest_deteriorations_relative_to_gru": [
+      {
+        "case_id": 68,
+        "attention_minus_gru_mae": 0.17658921183206022
+      },
+      {
+        "case_id": 31,
+        "attention_minus_gru_mae": 0.13986907499999912
+      },
+      {
+        "case_id": 136,
+        "attention_minus_gru_mae": 0.0801146087824347
+      },
+      {
+        "case_id": 69,
+        "attention_minus_gru_mae": 0.033390041666665926
+      },
+      {
+        "case_id": 137,
+        "attention_minus_gru_mae": 0.021967602094240757
+      }
+    ],
+    "cases_97_and_154": [
+      {
+        "case_id": 97,
+        "attention_mae": 2.3814016255442674,
+        "gru_mae": 2.3922505319303338,
+        "persistence_mae": 2.5229317460087084,
+        "attention_minus_gru_mae": -0.010848906386066393,
+        "attention_minus_persistence_mae": -0.14153012046444102
+      },
+      {
+        "case_id": 154,
+        "attention_mae": 2.8168810144486693,
+        "gru_mae": 2.919629982509506,
+        "persistence_mae": 2.836768107984791,
+        "attention_minus_gru_mae": -0.10274896806083644,
+        "attention_minus_persistence_mae": -0.019887093536121725
+      }
+    ]
+  },
+  "no_significance_test_performed": true
+}
