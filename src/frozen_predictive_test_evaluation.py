@@ -84,6 +84,11 @@ FEATURES = {
 }
 BOOTSTRAP_REPLICATES = 10_000
 BOOTSTRAP_SEED = 20260718
+INTEGRITY_CHECKER_VERSION = "heldout-alignment-v2"
+TARGET_COMPARISON_DTYPE = np.dtype(np.float32)
+TARGET_COMPARISON_RTOL = float(np.finfo(np.float32).eps / 2.0)
+TARGET_COMPARISON_ATOL = 0.0
+ALIGNMENT_INTEGER_COLUMNS = ("sample_index", "case_id", "target_timestamp")
 REQUIRED_DECISION_KEYS = (
     "decision_timestamp_utc",
     "decision_code_commit",
@@ -134,6 +139,33 @@ def _write_once_json(path: Path, payload: Mapping[str, Any]) -> None:
 
 def _write_once_csv(path: Path, frame: pd.DataFrame) -> None:
     _write_once_text(path, frame.to_csv(index=False, lineterminator="\n"))
+
+
+def _write_prediction_csv(path: Path, frame: pd.DataFrame) -> None:
+    """Write enough significant digits for an exact float32 CSV round trip."""
+
+    _write_once_text(
+        path,
+        frame.to_csv(index=False, lineterminator="\n", float_format="%.9g"),
+    )
+
+
+def target_comparison_policy() -> dict[str, Any]:
+    """Describe the serialization-aware held-out target equality policy."""
+
+    return {
+        "policy": "float32_canonical_equality_with_half_epsilon_bound",
+        "source_dtype": TARGET_COMPARISON_DTYPE.name,
+        "csv_read_dtype": "float64",
+        "rtol": TARGET_COMPARISON_RTOL,
+        "atol": TARGET_COMPARISON_ATOL,
+        "equal_nan": False,
+        "canonical_float32_values_must_match_exactly": True,
+        "rationale": (
+            "Targets originate as float32. Decimal CSV parsing may differ in float64 "
+            "by rounding noise, but must map back to the identical float32 value."
+        ),
+    }
 
 
 def validate_frozen_decision(payload: Mapping[str, Any]) -> None:
@@ -436,13 +468,183 @@ def _validate_predictions(frame: pd.DataFrame) -> pd.DataFrame:
     missing = sorted(required - set(frame.columns))
     if missing or frame.empty:
         raise ValueError(f"Test predictions are empty or incomplete: {missing}")
-    result = frame.sort_values("sample_index", kind="stable").reset_index(drop=True)
+    result = frame.reset_index(drop=True)
     if result["sample_index"].duplicated().any():
         raise ValueError("Test predictions contain duplicate sample indices.")
     numeric = result.loc[:, list(required)].to_numpy(dtype=float)
     if not np.isfinite(numeric).all():
         raise ValueError("Test predictions contain non-finite values.")
     return result
+
+
+def _canonicalize_prediction_floats(frame: pd.DataFrame) -> pd.DataFrame:
+    """Use the model/dataset float32 precision before persistence or scoring."""
+
+    result = frame.copy()
+    for column in ("observed_future_bis", "predicted_future_bis"):
+        result[column] = result[column].to_numpy(dtype=TARGET_COMPARISON_DTYPE)
+    return result
+
+
+def _json_values(values: np.ndarray, limit: int = 10) -> list[int | float | str]:
+    """Return compact JSON-safe diagnostic values."""
+
+    result: list[int | float | str] = []
+    for value in values[:limit]:
+        if isinstance(value, (np.integer, int)):
+            result.append(int(value))
+        elif isinstance(value, (np.floating, float)):
+            result.append(float(value))
+        else:
+            result.append(str(value))
+    return result
+
+
+def _integer_alignment_values(frame: pd.DataFrame, field: str) -> np.ndarray:
+    """Parse one alignment field without silently truncating non-integer values."""
+
+    numeric = pd.to_numeric(frame[field], errors="coerce").to_numpy(dtype=float)
+    invalid = ~np.isfinite(numeric) | (numeric != np.trunc(numeric))
+    if invalid.any():
+        index = int(np.flatnonzero(invalid)[0])
+        raise ValueError(
+            f"Held-out alignment field {field!r} is not finite integer data: "
+            f"first_invalid_index={index}, observed_dtype={frame[field].dtype}, "
+            f"first_values={_json_values(numeric)}"
+        )
+    return numeric.astype(np.int64)
+
+
+def _key_examples(values: np.ndarray) -> list[list[int]]:
+    return [[int(item) for item in row] for row in values[:10]]
+
+
+def verify_prediction_alignment(
+    expected: pd.DataFrame,
+    observed: pd.DataFrame,
+    *,
+    context: str,
+) -> dict[str, Any]:
+    """Verify exact keys/order and serialization-equivalent float32 targets."""
+
+    expected_count = len(expected)
+    observed_count = len(observed)
+    expected_integer = np.column_stack(
+        [expected[field].to_numpy(dtype=np.int64) for field in ALIGNMENT_INTEGER_COLUMNS]
+    )
+    observed_integer = np.column_stack(
+        [_integer_alignment_values(observed, field) for field in ALIGNMENT_INTEGER_COLUMNS]
+    )
+    expected_key_set = {tuple(row) for row in expected_integer.tolist()}
+    observed_key_set = {tuple(row) for row in observed_integer.tolist()}
+    duplicate_mask = pd.DataFrame(
+        observed_integer, columns=ALIGNMENT_INTEGER_COLUMNS
+    ).duplicated(keep=False)
+    diagnostics: dict[str, Any] = {
+        "context": context,
+        "expected_row_count": expected_count,
+        "observed_row_count": observed_count,
+        "expected_dtypes": {
+            field: str(expected[field].dtype)
+            for field in (*ALIGNMENT_INTEGER_COLUMNS, "observed_future_bis")
+        },
+        "observed_dtypes": {
+            field: str(observed[field].dtype)
+            for field in (*ALIGNMENT_INTEGER_COLUMNS, "observed_future_bis")
+        },
+        "duplicate_key_count": int(duplicate_mask.sum()),
+        "duplicate_key_examples": _key_examples(observed_integer[duplicate_mask]),
+        "first_10_expected_keys": _key_examples(expected_integer),
+        "first_10_observed_keys": _key_examples(observed_integer),
+        "missing_key_examples": [
+            [int(item) for item in key]
+            for key in sorted(expected_key_set - observed_key_set)[:10]
+        ],
+        "extra_key_examples": [
+            [int(item) for item in key]
+            for key in sorted(observed_key_set - expected_key_set)[:10]
+        ],
+    }
+    if expected_count != observed_count:
+        diagnostics["mismatch_field"] = "row_count"
+        diagnostics["first_mismatch_index"] = min(expected_count, observed_count)
+        raise ValueError(f"Held-out alignment mismatch: {json.dumps(diagnostics)}")
+    if diagnostics["duplicate_key_count"]:
+        diagnostics["mismatch_field"] = "duplicate_key"
+        diagnostics["first_mismatch_index"] = int(np.flatnonzero(duplicate_mask)[0])
+        raise ValueError(f"Held-out alignment mismatch: {json.dumps(diagnostics)}")
+    for column_index, field in enumerate(ALIGNMENT_INTEGER_COLUMNS):
+        expected_values = expected_integer[:, column_index]
+        observed_values = observed_integer[:, column_index]
+        mismatch = expected_values != observed_values
+        if mismatch.any():
+            first = int(np.flatnonzero(mismatch)[0])
+            diagnostics.update(
+                {
+                    "mismatch_field": field,
+                    "first_mismatch_index": first,
+                    "mismatched_row_count": int(mismatch.sum()),
+                    "first_10_expected_values": _json_values(expected_values),
+                    "first_10_observed_values": _json_values(observed_values),
+                }
+            )
+            raise ValueError(f"Held-out alignment mismatch: {json.dumps(diagnostics)}")
+
+    expected_target = pd.to_numeric(
+        expected["observed_future_bis"], errors="coerce"
+    ).to_numpy(dtype=float)
+    observed_target = pd.to_numeric(
+        observed["observed_future_bis"], errors="coerce"
+    ).to_numpy(dtype=float)
+    if not np.isfinite(expected_target).all() or not np.isfinite(observed_target).all():
+        invalid = ~np.isfinite(expected_target) | ~np.isfinite(observed_target)
+        diagnostics.update(
+            {
+                "mismatch_field": "observed_future_bis_non_finite",
+                "first_mismatch_index": int(np.flatnonzero(invalid)[0]),
+                "mismatched_row_count": int(invalid.sum()),
+                "first_10_expected_values": _json_values(expected_target),
+                "first_10_observed_values": _json_values(observed_target),
+            }
+        )
+        raise ValueError(f"Held-out alignment mismatch: {json.dumps(diagnostics)}")
+    float64_close = np.isclose(
+        observed_target,
+        expected_target,
+        rtol=TARGET_COMPARISON_RTOL,
+        atol=TARGET_COMPARISON_ATOL,
+        equal_nan=False,
+    )
+    canonical_equal = (
+        observed_target.astype(TARGET_COMPARISON_DTYPE)
+        == expected_target.astype(TARGET_COMPARISON_DTYPE)
+    )
+    target_match = float64_close & canonical_equal
+    absolute_difference = np.abs(observed_target - expected_target)
+    if not target_match.all():
+        first = int(np.flatnonzero(~target_match)[0])
+        diagnostics.update(
+            {
+                "mismatch_field": "observed_future_bis",
+                "first_mismatch_index": first,
+                "mismatched_row_count": int((~target_match).sum()),
+                "first_10_expected_values": _json_values(expected_target),
+                "first_10_observed_values": _json_values(observed_target),
+                "max_absolute_target_difference": float(absolute_difference.max()),
+                "target_comparison_policy": target_comparison_policy(),
+            }
+        )
+        raise ValueError(f"Held-out alignment mismatch: {json.dumps(diagnostics)}")
+    return {
+        "row_count": expected_count,
+        "integer_fields_exact": True,
+        "row_order_exact": True,
+        "duplicate_key_count": 0,
+        "missing_key_count": 0,
+        "extra_key_count": 0,
+        "target_mismatch_count": 0,
+        "max_absolute_target_difference": float(absolute_difference.max(initial=0.0)),
+    }
 
 
 def _numeric_values_are_finite(value: Any) -> bool:
@@ -486,6 +688,7 @@ def verify_test_result_integrity(
     dataset = VitalBISDataset(
         dataset_dir, "test", dynamic_features=REFERENCE_FEATURES
     )
+    full_dataset_sha = full_test_dataset_fingerprint(dataset_dir)["combined_sha256"]
     expected = pd.DataFrame(
         {
             "sample_index": np.arange(len(dataset), dtype=np.int64),
@@ -504,6 +707,7 @@ def verify_test_result_integrity(
     ]
     canonical: pd.DataFrame | None = None
     patient_ids = sorted(expected["case_id"].astype(int).unique().tolist())
+    maximum_target_difference = 0.0
     for record in inventory.to_dict("records"):
         key = (record["candidate"], record["model"], int(record["seed"]))
         run_output = _run_output_dir(output_dir, record)
@@ -514,37 +718,42 @@ def verify_test_result_integrity(
             raise ValueError(f"Missing held-out run artifact for {key}: {run_output}")
         prediction = _validate_predictions(pd.read_csv(prediction_path))
         alignment = prediction.loc[:, alignment_columns]
-        if not np.array_equal(
-            alignment[["sample_index", "case_id", "target_timestamp"]].to_numpy(
-                dtype=np.int64
-            ),
-            expected[["sample_index", "case_id", "target_timestamp"]].to_numpy(
-                dtype=np.int64
-            ),
-        ) or not np.allclose(
-            alignment["observed_future_bis"].to_numpy(float),
-            expected["observed_future_bis"].to_numpy(float),
-            rtol=0.0,
-            atol=1e-6,
-        ):
-            raise ValueError(f"Held-out patient/timestamp/target alignment mismatch for {key}.")
+        alignment_result = verify_prediction_alignment(
+            expected, alignment, context=f"dataset versus {key}"
+        )
+        maximum_target_difference = max(
+            maximum_target_difference,
+            float(alignment_result["max_absolute_target_difference"]),
+        )
         if canonical is None:
-            canonical = alignment
-        elif not np.array_equal(
-            alignment[["sample_index", "case_id", "target_timestamp"]].to_numpy(),
-            canonical[["sample_index", "case_id", "target_timestamp"]].to_numpy(),
-        ) or not np.allclose(
-            alignment["observed_future_bis"].to_numpy(float),
-            canonical["observed_future_bis"].to_numpy(float),
-            rtol=0.0,
-            atol=1e-6,
-        ):
-            raise ValueError(f"Candidate/reference target pairing mismatch for {key}.")
+            canonical = alignment.copy()
+        else:
+            verify_prediction_alignment(
+                canonical,
+                alignment,
+                context=f"canonical run versus {key}",
+            )
         metrics = load_json(metrics_path)
         if not _numeric_values_are_finite(metrics):
             raise ValueError(f"Non-finite held-out metric detected for {key}.")
         if metrics.get("predictions_sha256") != sha256_file(prediction_path):
             raise ValueError(f"Prediction hash mismatch for {key}.")
+        canonical_prediction = _canonicalize_prediction_floats(prediction)
+        recalculated_metrics, recalculated_patients = _summarize_prediction(
+            canonical_prediction, record, str(full_dataset_sha)
+        )
+        recalculated_patients = recalculated_patients.replace({None: np.nan})
+        recalculated_metrics["predictions_sha256"] = sha256_file(prediction_path)
+        if metrics != recalculated_metrics:
+            mismatched_metric_fields = sorted(
+                key_name
+                for key_name in set(metrics) | set(recalculated_metrics)
+                if metrics.get(key_name) != recalculated_metrics.get(key_name)
+            )
+            raise ValueError(
+                f"Stored held-out metrics do not match prediction-derived metrics for "
+                f"{key}: {mismatched_metric_fields}"
+            )
         patients = pd.read_csv(patient_path)
         if sorted(patients["case_id"].astype(int).tolist()) != patient_ids:
             raise ValueError(f"Patient-level aggregation mismatch for {key}.")
@@ -576,11 +785,25 @@ def verify_test_result_integrity(
                 raise ValueError(
                     f"Undefined patient-level {metric_name} has a numeric value for {key}."
                 )
+        try:
+            pd.testing.assert_frame_equal(
+                patients.reset_index(drop=True),
+                recalculated_patients.reset_index(drop=True),
+                check_dtype=False,
+                check_exact=False,
+                rtol=1e-12,
+                atol=1e-12,
+            )
+        except AssertionError as error:
+            raise ValueError(
+                f"Stored patient aggregation does not match predictions for {key}: {error}"
+            ) from error
     assert canonical is not None
     canonical_sha = _sha256_text(
-        canonical.to_csv(index=False, lineterminator="\n")
+        expected.to_csv(index=False, lineterminator="\n", float_format="%.9g")
     )
     return {
+        "integrity_checker_version": INTEGRITY_CHECKER_VERSION,
         "checkpoint_evaluation_count": 20,
         "duplicate_run_count": 0,
         "missing_run_count": 0,
@@ -590,6 +813,8 @@ def verify_test_result_integrity(
         "candidate_reference_pairing_exact": True,
         "all_metrics_finite": True,
         "canonical_alignment_sha256": canonical_sha,
+        "target_comparison_policy": target_comparison_policy(),
+        "maximum_observed_target_serialization_difference": maximum_target_difference,
     }
 
 
@@ -631,6 +856,54 @@ def _run_output_dir(output_dir: Path, record: Mapping[str, Any]) -> Path:
     )
 
 
+def _run_artifact_paths(
+    output_dir: Path, records: Sequence[Mapping[str, Any]]
+) -> list[Path]:
+    return [
+        _run_output_dir(output_dir, record) / name
+        for record in records
+        for name in RUN_ARTIFACTS
+    ]
+
+
+def _artifact_timestamp(path: Path) -> dict[str, str | None]:
+    stat_result = path.stat()
+    birthtime = getattr(stat_result, "st_birthtime", None)
+    return {
+        "created_time_utc": (
+            datetime.fromtimestamp(birthtime, timezone.utc).isoformat()
+            if birthtime is not None
+            else None
+        ),
+        "modified_time_utc": datetime.fromtimestamp(
+            stat_result.st_mtime, timezone.utc
+        ).isoformat(),
+        "creation_time_availability": (
+            "filesystem_birthtime" if birthtime is not None else "unavailable"
+        ),
+    }
+
+
+def snapshot_run_artifacts(
+    output_dir: Path, records: Sequence[Mapping[str, Any]]
+) -> list[dict[str, Any]]:
+    """Record immutable run artifact hashes, sizes, and available timestamps."""
+
+    snapshots: list[dict[str, Any]] = []
+    for path in _run_artifact_paths(output_dir, records):
+        if not path.is_file():
+            raise FileNotFoundError(f"Existing one-time run artifact is missing: {path}")
+        snapshots.append(
+            {
+                "path": path.relative_to(output_dir).as_posix(),
+                "sha256": sha256_file(path),
+                "size_bytes": path.stat().st_size,
+                **_artifact_timestamp(path),
+            }
+        )
+    return snapshots
+
+
 def _load_or_evaluate_run(
     record: Mapping[str, Any],
     *,
@@ -640,7 +913,8 @@ def _load_or_evaluate_run(
     device: str,
     batch_size: int,
     inference_fn: InferenceFunction,
-) -> tuple[dict[str, Any], pd.DataFrame]:
+    allow_inference: bool = True,
+) -> tuple[dict[str, Any], pd.DataFrame, str]:
     run_output = _run_output_dir(output_dir, record)
     paths = [run_output / name for name in RUN_ARTIFACTS]
     existing = [path.exists() for path in paths]
@@ -666,17 +940,24 @@ def _load_or_evaluate_run(
         if metrics.get("predictions_sha256") != sha256_file(paths[0]):
             raise ValueError(f"Completed prediction hash mismatch: {paths[0]}")
         patients = pd.read_csv(paths[2])
-        return metrics, patients
+        return metrics, patients, "verified_existing"
 
-    predictions = _validate_predictions(
-        inference_fn(record, dataset_dir, device, batch_size)
+    if not allow_inference:
+        missing = [path.name for path, exists in zip(paths, existing) if not exists]
+        raise ValueError(
+            "Post-processing resume requires all existing inference artifacts; "
+            f"missing from {run_output}: {missing}"
+        )
+
+    predictions = _canonicalize_prediction_floats(
+        _validate_predictions(inference_fn(record, dataset_dir, device, batch_size))
     )
     metrics, patients = _summarize_prediction(predictions, record, dataset_sha)
-    _write_once_csv(paths[0], predictions)
+    _write_prediction_csv(paths[0], predictions)
     metrics["predictions_sha256"] = sha256_file(paths[0])
     _write_once_json(paths[1], metrics)
     _write_once_csv(paths[2], patients)
-    return metrics, patients
+    return metrics, patients, "inferred_new"
 
 
 def _run_level_frame(metrics: Sequence[Mapping[str, Any]]) -> pd.DataFrame:
@@ -941,6 +1222,12 @@ The percentile intervals resample paired seeds and paired patients, never window
 {bootstrap.to_string(index=False)}
 ```
 
+## Alignment integrity policy
+Patient IDs, sample indices, timestamps, row count, and row order are exact. Targets
+originate as float32 and must remain within half a float32 machine epsilon in relative
+terms (`rtol={TARGET_COMPARISON_RTOL}`, `atol={TARGET_COMPARISON_ATOL}`) and map back
+to the identical float32 value after CSV parsing. NaN and infinity are prohibited.
+
 ## Interpretation limits
 - Test results cannot change the frozen predictive primary or introduce another candidate.
 - Small differences must not be overstated as clinically meaningful.
@@ -977,6 +1264,7 @@ def run_frozen_predictive_test_evaluation(
     bootstrap_replicates: int = BOOTSTRAP_REPLICATES,
     bootstrap_seed: int = BOOTSTRAP_SEED,
     inference_fn: InferenceFunction = _default_inference,
+    resume_existing_one_time_results: bool = False,
 ) -> dict[str, Any]:
     """Execute or resume the single prespecified 20-checkpoint test inference."""
 
@@ -1030,6 +1318,29 @@ def run_frozen_predictive_test_evaluation(
     metrics_rows: list[dict[str, Any]] = []
     patient_frames: list[pd.DataFrame] = []
     records = inventory.to_dict("records")
+    run_paths = _run_artifact_paths(output_dir, records)
+    existing_run_artifact_count = sum(path.is_file() for path in run_paths)
+    all_run_artifacts_exist = existing_run_artifact_count == len(run_paths)
+    artifact_snapshot_before: list[dict[str, Any]] | None = None
+    if resume_existing_one_time_results:
+        if not all_run_artifacts_exist:
+            raise ValueError(
+                "--resume-existing-one-time-results requires all 60 artifacts from "
+                "exactly 20 completed inference runs; no missing inference will be run. "
+                f"Found {existing_run_artifact_count}/60 files."
+            )
+        artifact_snapshot_before = snapshot_run_artifacts(output_dir, records)
+        LOGGER.info(
+            "All 20 inference artifacts already exist; resuming post-processing only."
+        )
+    elif all_run_artifacts_exist:
+        raise ValueError(
+            "All 20 inference runs already exist without a final manifest. Use "
+            "--resume-existing-one-time-results to permit integrity verification and "
+            "post-processing without inference."
+        )
+
+    inference_count = 0
     for index, record in enumerate(records, start=1):
         run_started = perf_counter()
         LOGGER.info(
@@ -1040,7 +1351,7 @@ def run_frozen_predictive_test_evaluation(
             record["seed"],
         )
         try:
-            metrics, patients = _load_or_evaluate_run(
+            metrics, patients, run_status = _load_or_evaluate_run(
                 record,
                 dataset_dir=dataset_dir,
                 output_dir=output_dir,
@@ -1048,6 +1359,7 @@ def run_frozen_predictive_test_evaluation(
                 device=device,
                 batch_size=batch_size,
                 inference_fn=inference_fn,
+                allow_inference=not resume_existing_one_time_results,
             )
         except Exception as error:
             raise RuntimeError(
@@ -1056,15 +1368,32 @@ def run_frozen_predictive_test_evaluation(
             ) from error
         metrics_rows.append(metrics)
         patient_frames.append(patients)
-        LOGGER.info(
-            "[%d/20] complete in %.2fs; %d complete, %d remaining",
-            index,
-            perf_counter() - run_started,
-            index,
-            20 - index,
-        )
+        if run_status == "verified_existing":
+            LOGGER.info(
+                "[%d/20] verified_existing; inference not rerun; %.2fs; %d remaining",
+                index,
+                perf_counter() - run_started,
+                20 - index,
+            )
+        else:
+            inference_count += 1
+            LOGGER.info(
+                "[%d/20] complete in %.2fs; %d complete, %d remaining",
+                index,
+                perf_counter() - run_started,
+                index,
+                20 - index,
+            )
+
+    if resume_existing_one_time_results and inference_count:
+        raise AssertionError("Post-processing resume unexpectedly executed inference.")
 
     integrity = verify_test_result_integrity(inventory, output_dir, dataset_dir)
+
+    if artifact_snapshot_before is not None:
+        artifact_snapshot_after_integrity = snapshot_run_artifacts(output_dir, records)
+        if artifact_snapshot_after_integrity != artifact_snapshot_before:
+            raise ValueError("Existing inference artifacts changed during integrity checks.")
 
     final_paths = [output_dir / name for name in FINAL_TABLES]
     if any(path.exists() for path in final_paths):
@@ -1108,6 +1437,12 @@ def run_frozen_predictive_test_evaluation(
     after_inventory = build_checkpoint_inventory(dataset_dir, strict_root, full17_root)
     if current_inventory.to_csv(index=False) != after_inventory.to_csv(index=False):
         raise ValueError("Source checkpoints or configs changed during test inference.")
+    final_run_artifact_snapshot = snapshot_run_artifacts(output_dir, records)
+    if (
+        artifact_snapshot_before is not None
+        and final_run_artifact_snapshot != artifact_snapshot_before
+    ):
+        raise ValueError("Existing inference artifacts changed during post-processing.")
     generated = [
         *(output_dir / name for name in tables),
         report_path,
@@ -1128,6 +1463,18 @@ def run_frozen_predictive_test_evaluation(
         "compact_consensus_tested": False,
         "training_performed": False,
         "checkpoint_reselection_performed": False,
+        "inference_reexecuted": inference_count > 0,
+        "inference_execution_count": inference_count,
+        "resumed_from_existing_run_artifacts": resume_existing_one_time_results,
+        "postprocessing_only_resume": resume_existing_one_time_results,
+        "postprocessing_git_commit": _git_head(),
+        "integrity_checker_version": INTEGRITY_CHECKER_VERSION,
+        "float_target_comparison": target_comparison_policy(),
+        "original_run_artifact_provenance": (
+            artifact_snapshot_before
+            if artifact_snapshot_before is not None
+            else final_run_artifact_snapshot
+        ),
         "internal_heldout_not_external_validation": True,
         "bootstrap_replicates": bootstrap_replicates,
         "bootstrap_seed": bootstrap_seed,

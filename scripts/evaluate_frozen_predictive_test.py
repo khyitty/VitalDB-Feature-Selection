@@ -39,6 +39,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Freeze the decision and list checkpoints without opening test data.",
     )
+    parser.add_argument(
+        "--resume-existing-one-time-results",
+        action="store_true",
+        help=(
+            "Require all 20 existing inference runs and resume integrity checks and "
+            "post-processing without executing model inference."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -64,6 +72,7 @@ def main() -> None:
             batch_size=args.batch_size,
             bootstrap_replicates=args.bootstrap_replicates,
             bootstrap_seed=args.bootstrap_seed,
+            resume_existing_one_time_results=args.resume_existing_one_time_results,
         )
     print(json.dumps(result, indent=2))
 

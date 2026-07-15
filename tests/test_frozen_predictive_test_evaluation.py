@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
 import pytest
+import src.frozen_predictive_test_evaluation as frozen_workflow
 
 from src.frozen_candidate_retraining import MODELS, SEEDS, sha256_file
 from src.frozen_predictive_test_evaluation import (
@@ -308,6 +310,100 @@ def test_partial_resume_runs_only_missing_inference(
     assert len(resumed) == 17
 
 
+def test_explicit_postprocessing_resume_never_reruns_inference_or_changes_artifacts(
+    frozen_test_workspace: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original_integrity = frozen_workflow.verify_test_result_integrity
+
+    def interrupted_after_inference(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        raise ValueError("synthetic post-inference integrity interruption")
+
+    monkeypatch.setattr(
+        frozen_workflow, "verify_test_result_integrity", interrupted_after_inference
+    )
+    with pytest.raises(ValueError, match="post-inference integrity interruption"):
+        run_frozen_predictive_test_evaluation(
+            **_kwargs(frozen_test_workspace),
+            confirmation=CONFIRMATION_PHRASE,
+            inference_fn=_prediction_callback,
+            bootstrap_replicates=20,
+        )
+
+    output = Path(frozen_test_workspace["test_output"])
+    run_files = sorted(path for path in (output / "runs").rglob("*") if path.is_file())
+    assert len(run_files) == 60
+    hashes_before = {path: sha256_file(path) for path in run_files}
+    mtimes_before = {path: path.stat().st_mtime_ns for path in run_files}
+    monkeypatch.setattr(
+        frozen_workflow, "verify_test_result_integrity", original_integrity
+    )
+
+    def forbidden(*args: Any, **kwargs: Any) -> pd.DataFrame:
+        raise AssertionError("model inference must not run during post-processing resume")
+
+    metrics_path = output / "runs/strict_consensus/gru/seed_7/test_metrics.json"
+    original_metrics = metrics_path.read_bytes()
+    original_stat = metrics_path.stat()
+    tampered_metrics = json.loads(original_metrics)
+    tampered_metrics["test_patient_level_mae"] += 0.1
+    _write_json(metrics_path, tampered_metrics)
+    try:
+        with pytest.raises(ValueError, match="prediction-derived metrics"):
+            run_frozen_predictive_test_evaluation(
+                **_kwargs(frozen_test_workspace),
+                confirmation=CONFIRMATION_PHRASE,
+                inference_fn=forbidden,
+                bootstrap_replicates=20,
+                resume_existing_one_time_results=True,
+            )
+    finally:
+        metrics_path.write_bytes(original_metrics)
+        os.utime(
+            metrics_path,
+            ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),
+        )
+
+    result = run_frozen_predictive_test_evaluation(
+        **_kwargs(frozen_test_workspace),
+        confirmation=CONFIRMATION_PHRASE,
+        inference_fn=forbidden,
+        bootstrap_replicates=20,
+        resume_existing_one_time_results=True,
+    )
+    manifest = json.loads((output / "test_evaluation_manifest.json").read_text())
+    assert result == {"status": "complete", "skipped": False, "run_count": 20}
+    assert manifest["inference_reexecuted"] is False
+    assert manifest["inference_execution_count"] == 0
+    assert manifest["resumed_from_existing_run_artifacts"] is True
+    assert manifest["postprocessing_only_resume"] is True
+    assert len(manifest["original_run_artifact_provenance"]) == 60
+    assert {path: sha256_file(path) for path in run_files} == hashes_before
+    assert {path: path.stat().st_mtime_ns for path in run_files} == mtimes_before
+    assert (output / "test_candidate_aggregate.csv").is_file()
+    assert (output / "frozen_predictive_test_report.md").is_file()
+
+
+def test_postprocessing_resume_refuses_missing_artifacts_without_inference(
+    frozen_test_workspace: dict[str, Any],
+) -> None:
+    calls = 0
+
+    def forbidden(*args: Any, **kwargs: Any) -> pd.DataFrame:
+        nonlocal calls
+        calls += 1
+        raise AssertionError("inference must not fill missing resume artifacts")
+
+    with pytest.raises(ValueError, match="requires all 60 artifacts"):
+        run_frozen_predictive_test_evaluation(
+            **_kwargs(frozen_test_workspace),
+            confirmation=CONFIRMATION_PHRASE,
+            inference_fn=forbidden,
+            bootstrap_replicates=20,
+            resume_existing_one_time_results=True,
+        )
+    assert calls == 0
+
+
 def test_complete_compatible_evaluation_skips_all_inference(
     frozen_test_workspace: dict[str, Any],
 ) -> None:
@@ -392,6 +488,8 @@ def test_colab_notebook_has_lock_and_no_training_command() -> None:
             assert cell["outputs"] == []
     assert CONFIRMATION_PHRASE in code
     assert "--preflight-only" in code
+    assert "--resume-existing-one-time-results" in code
+    assert "deque(maxlen=200)" in code
     assert "evaluated_checkpoint_inventory.csv" in code
     assert "run_baselines.py" not in code
     assert "run_attention.py" not in code
