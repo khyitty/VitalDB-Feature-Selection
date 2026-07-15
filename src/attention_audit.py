@@ -18,7 +18,7 @@ matplotlib.use("Agg")
 from matplotlib import pyplot as plt  # noqa: E402
 
 from src.attention_training import predict_and_extract_attention
-from src.datasets import VitalBISDataset
+from src.datasets import VitalBISDataset, resolve_dynamic_feature_subset
 from src.metrics import patient_level_evaluation, pooled_evaluation
 from src.models.attention import FactorizedAttentionGRU
 from src.models.baselines import GRUBaseline, PersistenceBaseline
@@ -114,7 +114,10 @@ def align_prediction_rows(
 
 
 def load_split_attention(
-    run_dir: Path, dataset_dir: Path, split: str
+    run_dir: Path,
+    dataset_dir: Path,
+    split: str,
+    dynamic_feature_names: Iterable[str] | None = None,
 ) -> SplitAttentionData:
     """Load and strictly align one saved attention split."""
 
@@ -146,8 +149,21 @@ def load_split_attention(
     for column in ("case_id", "target_timestamp"):
         if not np.array_equal(predictions[column], aligned_metadata[column]):
             raise ValueError(f"{split} predictions do not align with metadata {column}.")
+    dataset_metadata = load_json(dataset_dir / "dataset_metadata.json")
+    _, feature_indices = resolve_dynamic_feature_subset(
+        dataset_metadata["dynamic_feature_names"],
+        dynamic_features=(
+            None
+            if dynamic_feature_names is None
+            else tuple(dynamic_feature_names)
+        ),
+    )
     with np.load(dataset_dir / f"{split}.npz", allow_pickle=False) as dataset_archive:
-        observation_mask = dataset_archive["observation_mask"][sample_indices]
+        observation_mask = np.take(
+            dataset_archive["observation_mask"][sample_indices],
+            np.asarray(feature_indices, dtype=np.int64),
+            axis=2,
+        )
     expected_shape = observation_mask.shape
     if feature.shape != expected_shape or combined.shape != expected_shape:
         raise ValueError(f"{split} feature/combined attention shape is inconsistent.")
@@ -376,6 +392,18 @@ def attention_concentration(data: SplitAttentionData) -> dict[str, Any]:
             "mean_normalized_entropy": float(temporal_entropy.mean()),
             "median_normalized_entropy": float(np.median(temporal_entropy)),
             "mean_maximum_time_weight": float(temporal_max.mean()),
+            "standard_deviation_maximum_time_weight": float(
+                temporal_max.std(ddof=0)
+            ),
+            "minimum_maximum_time_weight": float(temporal_max.min()),
+            "first_quartile_maximum_time_weight": float(
+                np.quantile(temporal_max, 0.25)
+            ),
+            "median_maximum_time_weight": float(np.median(temporal_max)),
+            "third_quartile_maximum_time_weight": float(
+                np.quantile(temporal_max, 0.75)
+            ),
+            "maximum_maximum_time_weight": float(temporal_max.max()),
             "proportion_samples_max_over_0_5": float((temporal_max > 0.5).mean()),
             "proportion_samples_max_over_0_75": float((temporal_max > 0.75).mean()),
             "proportion_samples_max_over_0_9": float((temporal_max > 0.9).mean()),
@@ -485,6 +513,8 @@ def benchmark_inference(
     criterion = nn.HuberLoss(delta=1.0)
     attention_config = load_json(attention_run_dir / "config.json")
     gru_config = load_json(gru_run_dir / "config.json")
+    if attention_config["dynamic_feature_names"] != gru_config["dynamic_feature_names"]:
+        raise ValueError("Attention and GRU inference feature orders differ.")
     attention = _build_model_from_config("attention", attention_config).to(device)
     gru = _build_model_from_config("gru", gru_config).to(device)
     attention.load_state_dict(
@@ -503,7 +533,11 @@ def benchmark_inference(
     persistence: PersistenceBaseline | None = None
     results: dict[str, Any] = {}
     for split in SPLITS:
-        dataset = VitalBISDataset(dataset_dir, split)
+        dataset = VitalBISDataset(
+            dataset_dir,
+            split,
+            dynamic_features=attention_config["dynamic_feature_names"],
+        )
         if persistence is None:
             persistence = PersistenceBaseline.from_feature_metadata(
                 dataset.dynamic_feature_names,
@@ -724,6 +758,7 @@ def run_attention_audit(
     dataset_dir: Path,
     baselines_dir: Path,
     command_wall_seconds: float,
+    gru_run_dir: Path | None = None,
 ) -> dict[str, Any]:
     """Create the complete one-seed attention audit and source tables."""
 
@@ -751,22 +786,28 @@ def run_attention_audit(
     run_config = load_json(run_dir / "config.json")
     dataset_metadata = load_json(dataset_dir / "dataset_metadata.json")
     attention_metadata = load_json(run_dir / "attention_metadata.json")
-    feature_names = list(dataset_metadata["dynamic_feature_names"])
-    if run_config["dynamic_feature_names"] != feature_names:
-        raise ValueError("Run feature order differs from dataset metadata.")
+    feature_names = list(run_config["dynamic_feature_names"])
+    resolved_names, _ = resolve_dynamic_feature_subset(
+        dataset_metadata["dynamic_feature_names"], dynamic_features=feature_names
+    )
+    if list(resolved_names) != feature_names:
+        raise ValueError("Run feature order is not a valid dataset metadata subset.")
     if attention_metadata["dynamic_feature_names"] != feature_names:
         raise ValueError("Attention metadata feature order differs from dataset metadata.")
     if attention_metadata["time_lags_seconds"] != list(TIME_LAGS):
         raise ValueError("Attention time-lag order is not -50,-40,-30,-20,-10,0.")
 
     data = {
-        split: load_split_attention(run_dir, dataset_dir, split) for split in SPLITS
+        split: load_split_attention(
+            run_dir, dataset_dir, split, dynamic_feature_names=feature_names
+        )
+        for split in SPLITS
     }
     persistence_predictions = {
         split: pd.read_csv(baselines_dir / "persistence" / f"{split}_predictions.csv")
         for split in SPLITS
     }
-    gru_dir = baselines_dir / "gru" / "seed_42"
+    gru_dir = gru_run_dir or baselines_dir / "gru" / "seed_42"
     gru_predictions = {
         split: pd.read_csv(gru_dir / f"{split}_predictions.csv") for split in SPLITS
     }
@@ -1044,7 +1085,10 @@ def run_attention_audit(
             "validation_case_count": int(np.unique(data["val"].case_ids).size),
             "test_case_count": int(np.unique(data["test"].case_ids).size),
             "prediction_attention_metadata_alignment_verified": True,
-            "feature_order_matches_dataset_metadata": True,
+            "feature_order_matches_dataset_metadata": (
+                feature_names == list(dataset_metadata["dynamic_feature_names"])
+            ),
+            "feature_order_is_valid_dataset_subset": True,
             "time_lag_order_seconds": list(TIME_LAGS),
             "checkpoint_prediction_reload_identical": bool(
                 load_json(run_dir / "test_metrics.json")[

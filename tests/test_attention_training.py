@@ -36,6 +36,7 @@ def test_attention_smoke_pipeline_saves_aligned_outputs(
             feature_token_embedding_dim=8,
             static_context_dim=4,
             smoke=True,
+            exclude_dynamic_features=("bis_error",),
         )
     )
 
@@ -60,9 +61,9 @@ def test_attention_smoke_pipeline_saves_aligned_outputs(
         synthetic_modeling_dir / "val_metadata.csv"
     )
     with np.load(output_dir / "val_attention.npz", allow_pickle=False) as attention:
-        assert attention["feature_attention"].shape == (8, 6, 18)
+        assert attention["feature_attention"].shape == (8, 6, 17)
         assert attention["temporal_attention"].shape == (8, 6)
-        assert attention["combined_attention"].shape == (8, 6, 18)
+        assert attention["combined_attention"].shape == (8, 6, 17)
         assert np.array_equal(attention["sample_index"], predictions["sample_index"])
         assert np.array_equal(attention["case_id"], predictions["case_id"])
         assert np.array_equal(attention["case_id"], validation_metadata["case_id"])
@@ -76,9 +77,14 @@ def test_attention_smoke_pipeline_saves_aligned_outputs(
     attention_metadata = json.loads(
         (output_dir / "attention_metadata.json").read_text()
     )
-    assert attention_metadata["dynamic_feature_names"] == dataset_metadata[
-        "dynamic_feature_names"
+    expected_features = [
+        name
+        for name in dataset_metadata["dynamic_feature_names"]
+        if name != "bis_error"
     ]
+    assert attention_metadata["dynamic_feature_names"] == expected_features
+    run_config = json.loads((output_dir / "config.json").read_text())
+    assert run_config["dynamic_feature_names"] == expected_features
     assert attention_metadata["time_lags_seconds"] == [-50, -40, -30, -20, -10, 0]
     assert attention_metadata["maximum_missing_feature_attention_weight"] == 0.0
     assert attention_metadata["all_attention_values_finite"]

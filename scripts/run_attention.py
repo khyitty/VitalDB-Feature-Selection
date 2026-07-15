@@ -18,9 +18,17 @@ from src.attention_training import (  # noqa: E402
 )
 
 
+def _feature_names(value: str) -> tuple[str, ...]:
+    names = tuple(name.strip() for name in value.split(",") if name.strip())
+    if not names:
+        raise argparse.ArgumentTypeError("Provide at least one feature name.")
+    return names
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset-dir", type=Path, default=Path("data/modeling/full"))
+    parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--learning-rate", type=float, default=1e-3)
@@ -37,6 +45,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--resume", type=Path)
     parser.add_argument("--smoke", action="store_true")
+    feature_group = parser.add_mutually_exclusive_group()
+    feature_group.add_argument("--dynamic-features", type=_feature_names)
+    feature_group.add_argument("--exclude-dynamic-features", type=_feature_names)
     parser.add_argument(
         "--uniform-window-sampling",
         action="store_true",
@@ -49,9 +60,10 @@ def main() -> None:
     args = parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     run_name = f"smoke_seed_{args.seed}" if args.smoke else f"seed_{args.seed}"
+    output_dir = args.output_dir or Path("outputs/attention/factorized_gru") / run_name
     config = AttentionTrainingConfig(
         dataset_dir=args.dataset_dir,
-        output_dir=Path("outputs/attention/factorized_gru") / run_name,
+        output_dir=output_dir,
         seed=args.seed,
         device=args.device,
         learning_rate=args.learning_rate,
@@ -70,6 +82,8 @@ def main() -> None:
         resume_checkpoint=args.resume,
         feature_token_embedding_dim=args.feature_token_dim,
         static_context_dim=args.static_context_dim,
+        dynamic_features=args.dynamic_features,
+        exclude_dynamic_features=args.exclude_dynamic_features or (),
     )
     result = run_attention_training(config)
     print(json.dumps(result, indent=2))

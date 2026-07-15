@@ -26,6 +26,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--baselines-dir", type=Path, default=Path("outputs/baselines")
     )
+    parser.add_argument(
+        "--gru-run-dir",
+        type=Path,
+        help="Override the default outputs/baselines/gru/seed_42 comparison run.",
+    )
     parser.add_argument("--command-wall-seconds", type=float, required=True)
     return parser.parse_args()
 
@@ -38,6 +43,7 @@ def main() -> None:
         dataset_dir=args.dataset_dir,
         baselines_dir=args.baselines_dir,
         command_wall_seconds=args.command_wall_seconds,
+        gru_run_dir=args.gru_run_dir,
     )
     print(json.dumps(result["result_classification"], indent=2))
     print(json.dumps(result["runtime"], indent=2))

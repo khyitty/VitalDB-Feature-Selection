@@ -26,6 +26,7 @@ def test_end_to_end_training_saves_and_reloads_identical_checkpoint_predictions(
             projection_size=8,
             static_hidden_size=4,
             prediction_hidden_size=4,
+            exclude_dynamic_features=("bis_error",),
         )
     )
 
@@ -39,9 +40,14 @@ def test_end_to_end_training_saves_and_reloads_identical_checkpoint_predictions(
         "val_metrics.json",
         "test_metrics.json",
         "case_metrics.csv",
+        "runtime.json",
     }
     assert expected_files.issubset(path.name for path in output_dir.iterdir())
     assert result["checkpoint_reload_predictions_identical"]
+    config = json.loads((output_dir / "config.json").read_text())
+    assert config["dynamic_feature_names"][-1] == "bis_slope"
+    assert len(config["dynamic_feature_names"]) == 17
+    assert result["train_tensor_shape"] == [8, 6, 17]
     test_metrics = json.loads((output_dir / "test_metrics.json").read_text())
     for case_id in ("97", "154"):
         diagnostic = test_metrics["entirely_missing_remifentanil_case_diagnostics"][case_id]
@@ -51,4 +57,3 @@ def test_end_to_end_training_saves_and_reloads_identical_checkpoint_predictions(
         assert diagnostic["patient_metrics_reported"]
     predictions = pd.read_csv(output_dir / "test_predictions.csv")
     assert np.isfinite(predictions.predicted_future_bis).all()
-

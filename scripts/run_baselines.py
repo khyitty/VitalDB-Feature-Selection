@@ -19,6 +19,13 @@ from src.training import (  # noqa: E402
 )
 
 
+def _feature_names(value: str) -> tuple[str, ...]:
+    names = tuple(name.strip() for name in value.split(",") if name.strip())
+    if not names:
+        raise argparse.ArgumentTypeError("Provide at least one feature name.")
+    return names
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="baseline", required=True)
@@ -30,6 +37,7 @@ def parse_args() -> argparse.Namespace:
 
     gru = subparsers.add_parser("gru")
     gru.add_argument("--dataset-dir", type=Path, default=Path("data/modeling/full"))
+    gru.add_argument("--output-dir", type=Path)
     gru.add_argument("--seed", type=int, default=42)
     gru.add_argument("--device", default="auto")
     gru.add_argument("--learning-rate", type=float, default=1e-3)
@@ -43,6 +51,9 @@ def parse_args() -> argparse.Namespace:
     gru.add_argument("--num-workers", type=int, default=0)
     gru.add_argument("--resume", type=Path)
     gru.add_argument("--smoke", action="store_true")
+    feature_group = gru.add_mutually_exclusive_group()
+    feature_group.add_argument("--dynamic-features", type=_feature_names)
+    feature_group.add_argument("--exclude-dynamic-features", type=_feature_names)
     gru.add_argument(
         "--uniform-window-sampling",
         action="store_true",
@@ -62,9 +73,10 @@ def main() -> None:
         return
 
     run_name = f"smoke_seed_{args.seed}" if args.smoke else f"seed_{args.seed}"
+    output_dir = args.output_dir or Path("outputs/baselines/gru") / run_name
     config = TrainingConfig(
         dataset_dir=args.dataset_dir,
-        output_dir=Path("outputs/baselines/gru") / run_name,
+        output_dir=output_dir,
         seed=args.seed,
         device=args.device,
         learning_rate=args.learning_rate,
@@ -79,6 +91,8 @@ def main() -> None:
         num_workers=args.num_workers,
         smoke=args.smoke,
         resume_checkpoint=args.resume,
+        dynamic_features=args.dynamic_features,
+        exclude_dynamic_features=args.exclude_dynamic_features or (),
     )
     result = run_gru_training(config)
     print(json.dumps(result, indent=2))
@@ -86,4 +100,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

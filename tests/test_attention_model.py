@@ -111,6 +111,32 @@ def test_time_step_with_no_observed_feature_fails_clearly() -> None:
         model(dynamic, static, mask)
 
 
+def test_seventeen_feature_attention_forward_and_backward() -> None:
+    torch.manual_seed(29)
+    model = FactorizedAttentionGRU(
+        dynamic_feature_count=17,
+        static_feature_count=6,
+        history_steps=6,
+        feature_token_embedding_dim=8,
+        static_context_dim=4,
+        hidden_size=12,
+        prediction_hidden_size=6,
+    )
+    dynamic = torch.randn(3, 6, 17)
+    static = torch.randn(3, 6)
+    mask = torch.ones(3, 6, 17, dtype=torch.bool)
+
+    output = model(dynamic, static, mask, return_attention=True)
+    assert isinstance(output, FactorizedAttentionOutput)
+    output.prediction.square().mean().backward()
+
+    assert output.feature_attention.shape == (3, 6, 17)
+    assert output.combined_attention.shape == (3, 6, 17)
+    assert torch.isfinite(output.prediction).all()
+    assert model.gru.weight_ih_l0.grad is not None
+    assert torch.isfinite(model.gru.weight_ih_l0.grad).all()
+
+
 def test_eval_is_deterministic_and_checkpoint_restores_all_outputs(
     tmp_path: Path,
 ) -> None:

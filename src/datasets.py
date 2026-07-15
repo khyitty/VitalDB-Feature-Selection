@@ -22,6 +22,41 @@ EXPECTED_NPZ_KEYS = (
 )
 
 
+def resolve_dynamic_feature_subset(
+    available_features: Sequence[str],
+    dynamic_features: Sequence[str] | None = None,
+    exclude_dynamic_features: Sequence[str] = (),
+) -> tuple[tuple[str, ...], tuple[int, ...]]:
+    """Resolve a requested dynamic-feature subset and source-column indices."""
+
+    available = tuple(available_features)
+    requested = None if dynamic_features is None else tuple(dynamic_features)
+    excluded = tuple(exclude_dynamic_features)
+    if requested is not None and excluded:
+        raise ValueError(
+            "dynamic_features and exclude_dynamic_features are mutually exclusive."
+        )
+    duplicates = sorted({name for name in available if available.count(name) > 1})
+    if duplicates:
+        raise ValueError(f"Dataset metadata contains duplicate features: {duplicates}")
+    unknown = sorted(set((requested or ()) + excluded) - set(available))
+    if unknown:
+        raise ValueError(
+            "Unknown dynamic feature name(s): "
+            f"{unknown}. Available features: {list(available)}"
+        )
+    resolved = (
+        tuple(name for name in available if name not in set(excluded))
+        if requested is None
+        else requested
+    )
+    if not resolved:
+        raise ValueError("At least one dynamic feature must be selected.")
+    if len(set(resolved)) != len(resolved):
+        raise ValueError("Requested dynamic features must not contain duplicates.")
+    return resolved, tuple(available.index(name) for name in resolved)
+
+
 class VitalBISDataset(torch.utils.data.Dataset[dict[str, torch.Tensor]]):
     """Load one split of the leakage-safe future-BIS dataset.
 
@@ -29,7 +64,14 @@ class VitalBISDataset(torch.utils.data.Dataset[dict[str, torch.Tensor]]):
     tensors use ``torch.from_numpy`` so no additional array copy is made per sample.
     """
 
-    def __init__(self, dataset_dir: Path | str, split: str, validate: bool = True) -> None:
+    def __init__(
+        self,
+        dataset_dir: Path | str,
+        split: str,
+        validate: bool = True,
+        dynamic_features: Sequence[str] | None = None,
+        exclude_dynamic_features: Sequence[str] = (),
+    ) -> None:
         self.dataset_dir = Path(dataset_dir)
         self.split = split
         npz_path = self.dataset_dir / f"{split}.npz"
@@ -41,8 +83,15 @@ class VitalBISDataset(torch.utils.data.Dataset[dict[str, torch.Tensor]]):
 
         with dataset_metadata_path.open("r", encoding="utf-8") as handle:
             self.dataset_metadata = json.load(handle)
-        self.dynamic_feature_names = tuple(
+        self.source_dynamic_feature_names = tuple(
             self.dataset_metadata["dynamic_feature_names"]
+        )
+        self.dynamic_feature_names, self.dynamic_feature_indices = (
+            resolve_dynamic_feature_subset(
+                self.source_dynamic_feature_names,
+                dynamic_features=dynamic_features,
+                exclude_dynamic_features=exclude_dynamic_features,
+            )
         )
         self.static_feature_names = tuple(self.dataset_metadata["static_feature_names"])
 
@@ -51,6 +100,14 @@ class VitalBISDataset(torch.utils.data.Dataset[dict[str, torch.Tensor]]):
             if missing_keys:
                 raise ValueError(f"{npz_path} is missing arrays: {missing_keys}")
             self.arrays = {key: archive[key] for key in EXPECTED_NPZ_KEYS}
+        if self.dynamic_feature_names != self.source_dynamic_feature_names:
+            indices = np.asarray(self.dynamic_feature_indices, dtype=np.int64)
+            self.arrays["X_dynamic"] = np.take(
+                self.arrays["X_dynamic"], indices, axis=2
+            )
+            self.arrays["observation_mask"] = np.take(
+                self.arrays["observation_mask"], indices, axis=2
+            )
         self.metadata = pd.read_csv(metadata_path)
         required_metadata = {"case_id", "target_timestamp"}
         missing_columns = sorted(required_metadata - set(self.metadata.columns))

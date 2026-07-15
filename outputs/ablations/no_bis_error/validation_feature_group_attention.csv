@@ -1,0 +1,13 @@
+model,group,member_features,case_balanced_mean_attention,standard_deviation_across_cases,median_across_cases
+original_attention_18,current_bis,bis,0.6709422469139099,0.05692562088370323,0.6488820910453796
+original_attention_18,bis_quality_and_dynamics,"bis_sqi,bis_slope",0.00646047480404377,0.002280361484736204,0.006116305477917194
+original_attention_18,propofol,"ppf_rate,ppf_volume,ppf_cp,ppf_ce",0.0002214070118498057,5.7461336837150156e-05,0.00022476600133813918
+original_attention_18,remifentanil,"rftn_rate,rftn_volume,rftn_cp,rftn_ce",0.0334891714155674,0.013145782984793186,0.037640687078237534
+original_attention_18,hemodynamic,"hr,mbp,sbp,dbp",0.0006058714934624732,0.0001758430735208094,0.0005689862882718444
+original_attention_18,respiratory,"spo2,etco2",0.00027104298351332545,7.93576255091466e-05,0.0002529814373701811
+reduced_attention_17,current_bis,bis,0.5851911902427673,0.0327574722468853,0.5889652371406555
+reduced_attention_17,bis_quality_and_dynamics,"bis_sqi,bis_slope",0.04041121527552605,0.0051617869175970554,0.04153630509972572
+reduced_attention_17,propofol,"ppf_rate,ppf_volume,ppf_cp,ppf_ce",0.17181749641895294,0.018056996166706085,0.17199833691120148
+reduced_attention_17,remifentanil,"rftn_rate,rftn_volume,rftn_cp,rftn_ce",0.10529326647520065,0.01639999821782112,0.10742461681365967
+reduced_attention_17,hemodynamic,"hr,mbp,sbp,dbp",0.059207625687122345,0.006813696585595608,0.059726543724536896
+reduced_attention_17,respiratory,"spo2,etco2",0.03807920217514038,0.003696924541145563,0.037175603210926056

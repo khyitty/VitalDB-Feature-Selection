@@ -1,0 +1,10 @@
+{
+  "total_internal_runtime_seconds": 1615.2501671999926,
+  "completed_epochs": 19,
+  "best_epoch": 11,
+  "early_stopping_epoch": 19,
+  "training_time_seconds": 1436.3940509001259,
+  "validation_evaluation_time_seconds": 139.73329550004564,
+  "peak_memory": null,
+  "peak_memory_note": "not measured; no memory profiler was added"
+}

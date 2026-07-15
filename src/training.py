@@ -9,6 +9,7 @@ import random
 import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from time import perf_counter
 from typing import Any, Iterable, Sequence
 
 import numpy as np
@@ -61,6 +62,8 @@ class TrainingConfig:
     num_workers: int = 0
     smoke: bool = False
     resume_checkpoint: Path | None = None
+    dynamic_features: tuple[str, ...] | None = None
+    exclude_dynamic_features: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -134,6 +137,20 @@ def _selected_indices(dataset: VitalBISDataset, case_limit: int | None) -> np.nd
         return np.arange(len(dataset), dtype=np.int64)
     selected_cases = sorted(np.unique(dataset.case_ids).tolist())[:case_limit]
     return dataset.indices_for_cases(selected_cases)
+
+
+def load_training_dataset(
+    config: TrainingConfig, split: str, validate: bool = True
+) -> VitalBISDataset:
+    """Load one split with the runtime-resolved dynamic-feature subset."""
+
+    return VitalBISDataset(
+        config.dataset_dir,
+        split,
+        validate=validate,
+        dynamic_features=config.dynamic_features,
+        exclude_dynamic_features=config.exclude_dynamic_features,
+    )
 
 
 def make_data_loader(
@@ -449,12 +466,13 @@ def _verify_checkpoint_reload(
 def run_gru_training(config: TrainingConfig) -> dict[str, Any]:
     """Train, select, reload, and evaluate the compact GRU baseline."""
 
+    run_started = perf_counter()
     set_deterministic_seed(config.seed)
     device = resolve_device(config.device)
     config.output_dir.mkdir(parents=True, exist_ok=True)
-    train_dataset = VitalBISDataset(config.dataset_dir, "train")
-    val_dataset = VitalBISDataset(config.dataset_dir, "val")
-    test_dataset = VitalBISDataset(config.dataset_dir, "test")
+    train_dataset = load_training_dataset(config, "train")
+    val_dataset = load_training_dataset(config, "val")
+    test_dataset = load_training_dataset(config, "test")
     train_indices = _selected_indices(train_dataset, 4 if config.smoke else None)
     val_indices = _selected_indices(val_dataset, 3 if config.smoke else None)
     test_indices = _selected_indices(test_dataset, None)
@@ -533,6 +551,7 @@ def run_gru_training(config: TrainingConfig) -> dict[str, Any]:
     last_path = config.output_dir / "last_model.pt"
     max_epochs = min(config.max_epochs, 2) if config.smoke else config.max_epochs
     for epoch in range(start_epoch, max_epochs + 1):
+        training_started = perf_counter()
         train_loss = train_epoch(
             model,
             train_loader,
@@ -541,12 +560,15 @@ def run_gru_training(config: TrainingConfig) -> dict[str, Any]:
             device,
             config.gradient_clip_norm,
         )
+        training_seconds = perf_counter() - training_started
+        validation_started = perf_counter()
         val_bundle = predict_model(model, val_loader, criterion, device)
         val_patient = patient_level_evaluation(
             val_bundle.y_true, val_bundle.y_pred, val_bundle.case_ids
         )
         validation_patient_mae = float(val_patient.summary["mae"]["mean"])
         pooled_mae = float(regression_metrics(val_bundle.y_true, val_bundle.y_pred)["mae"])
+        validation_seconds = perf_counter() - validation_started
         history.append(
             {
                 "epoch": epoch,
@@ -554,6 +576,8 @@ def run_gru_training(config: TrainingConfig) -> dict[str, Any]:
                 "validation_loss": val_bundle.mean_loss,
                 "validation_pooled_mae": pooled_mae,
                 "validation_patient_level_mae": validation_patient_mae,
+                "training_time_seconds": training_seconds,
+                "validation_evaluation_time_seconds": validation_seconds,
                 "learning_rate": optimizer.param_groups[0]["lr"],
             }
         )
@@ -589,7 +613,8 @@ def run_gru_training(config: TrainingConfig) -> dict[str, Any]:
 
     if not best_path.exists():
         raise RuntimeError("Training completed without creating a best checkpoint.")
-    _load_checkpoint(best_path, model, optimizer=None, device=device)
+    checkpoint = _load_checkpoint(best_path, model, optimizer=None, device=device)
+    best_epoch = int(checkpoint["epoch"])
     reloaded_model, reload_identical = _verify_checkpoint_reload(
         model, best_path, val_loader, config, train_dataset, device
     )
@@ -622,6 +647,24 @@ def run_gru_training(config: TrainingConfig) -> dict[str, Any]:
     )
     _save_json(val_metrics, config.output_dir / "val_metrics.json")
     _save_json(test_metrics, config.output_dir / "test_metrics.json")
+    runtime = {
+        "total_internal_runtime_seconds": perf_counter() - run_started,
+        "completed_epochs": len(history),
+        "best_epoch": best_epoch,
+        "early_stopping_epoch": int(history[-1]["epoch"]),
+        "training_time_seconds": float(
+            sum(float(row.get("training_time_seconds", 0.0)) for row in history)
+        ),
+        "validation_evaluation_time_seconds": float(
+            sum(
+                float(row.get("validation_evaluation_time_seconds", 0.0))
+                for row in history
+            )
+        ),
+        "peak_memory": None,
+        "peak_memory_note": "not measured; no memory profiler was added",
+    }
+    _save_json(runtime, config.output_dir / "runtime.json")
     return {
         "output_dir": str(config.output_dir),
         "parameter_count": parameter_count,
@@ -638,7 +681,7 @@ def run_gru_training(config: TrainingConfig) -> dict[str, Any]:
             len(test_dataset.dynamic_feature_names),
         ],
         "checkpoint_reload_predictions_identical": reload_identical,
+        "runtime": runtime,
         "validation_metrics": val_metrics,
         "test_metrics": test_metrics,
     }
-

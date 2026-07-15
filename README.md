@@ -118,3 +118,20 @@ python scripts/audit_attention_run.py --run-dir outputs/attention/factorized_gru
 
 The audit uses equal case weighting and labels all figures as single-seed diagnostics.
 It does not create selected-feature or top-k artifacts.
+
+## BIS Error Redundancy Diagnostic
+
+`bis_error` is constructed in original units as `bis - 50`, so it must not count as
+an independently selected predictive feature. The controlled seed-42 diagnostic met
+the operational validation criterion for removing it. Future prediction-attention
+experiments should therefore load the existing NPZ files and exclude it at runtime:
+
+```powershell
+python scripts/run_baselines.py gru --dataset-dir data/modeling/full --output-dir outputs/ablations/no_bis_error/gru/seed_42 --exclude-dynamic-features bis_error --seed 42 --max-epochs 50 --patience 8 --batch-size 256 --device auto
+python scripts/run_attention.py --dataset-dir data/modeling/full --output-dir outputs/ablations/no_bis_error/attention/seed_42 --exclude-dynamic-features bis_error --seed 42 --max-epochs 50 --patience 8 --batch-size 256 --device auto
+```
+
+The original arrays and their preprocessing statistics remain unchanged. `bis_error`
+may later be reconsidered as an explicit control-derived RL policy input, but not as
+independent evidence in prediction feature-attention rankings. The complete diagnostic
+is written under `outputs/ablations/no_bis_error`.

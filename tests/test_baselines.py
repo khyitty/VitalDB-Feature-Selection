@@ -51,3 +51,20 @@ def test_observation_mask_changes_gru_input_and_prediction() -> None:
 
     assert not torch.equal(observed, missing)
 
+
+def test_seventeen_feature_gru_forward_and_backward() -> None:
+    torch.manual_seed(5)
+    model = GRUBaseline(17, 6, hidden_size=12, projection_size=8)
+    dynamic = torch.randn(3, 6, 17)
+    static = torch.randn(3, 6)
+    mask = torch.ones_like(dynamic, dtype=torch.bool)
+
+    prediction = model(dynamic, static, mask)
+    prediction.square().mean().backward()
+
+    assert prediction.shape == (3,)
+    assert torch.isfinite(prediction).all()
+    assert all(
+        parameter.grad is None or torch.isfinite(parameter.grad).all()
+        for parameter in model.parameters()
+    )

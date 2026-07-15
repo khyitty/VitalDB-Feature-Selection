@@ -34,6 +34,7 @@ from src.training import (
     _save_json,
     _selected_indices,
     evaluate_bundle,
+    load_training_dataset,
     make_data_loader,
     predict_model,
     prediction_frame,
@@ -379,8 +380,8 @@ def run_attention_training(config: AttentionTrainingConfig) -> dict[str, Any]:
     set_deterministic_seed(config.seed)
     device = torch.device("cpu") if config.smoke else resolve_device(config.device)
     config.output_dir.mkdir(parents=True, exist_ok=True)
-    train_dataset = VitalBISDataset(config.dataset_dir, "train")
-    val_dataset = VitalBISDataset(config.dataset_dir, "val")
+    train_dataset = load_training_dataset(config, "train")
+    val_dataset = load_training_dataset(config, "val")
     train_indices = _selected_indices(train_dataset, 4 if config.smoke else None)
     val_indices = _selected_indices(val_dataset, 3 if config.smoke else None)
     train_loader = make_data_loader(
@@ -557,7 +558,7 @@ def run_attention_training(config: AttentionTrainingConfig) -> dict[str, Any]:
     test_metrics: dict[str, Any] | None = None
 
     if not config.smoke:
-        test_dataset = VitalBISDataset(config.dataset_dir, "test")
+        test_dataset = load_training_dataset(config, "test")
         test_indices = _selected_indices(test_dataset, None)
         test_loader = make_data_loader(
             test_dataset,
