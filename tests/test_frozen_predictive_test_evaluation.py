@@ -24,6 +24,7 @@ from src.frozen_predictive_test_evaluation import (
     prepare_test_preflight,
     run_frozen_predictive_test_evaluation,
     validate_frozen_decision,
+    verify_test_result_integrity,
 )
 from src.rl_handoff import REQUIRED_EXTERNAL_INPUTS, run_rl_handoff_audit
 
@@ -219,6 +220,7 @@ def test_full_synthetic_evaluation_is_patient_grouped_paired_and_source_immutabl
     patients = pd.read_csv(output / "patient_level_test_metrics.csv")
     deltas = pd.read_csv(output / "paired_test_seed_deltas.csv")
     bootstrap = pd.read_csv(output / "hierarchical_bootstrap_test_contrasts.csv")
+    model_contrasts = pd.read_csv(output / "paired_model_test_contrasts.csv")
     manifest = json.loads((output / "test_evaluation_manifest.json").read_text())
     inventory_after = build_checkpoint_inventory(
         Path(frozen_test_workspace["dataset_dir"]),
@@ -231,11 +233,42 @@ def test_full_synthetic_evaluation_is_patient_grouped_paired_and_source_immutabl
     assert len(patients) == 20 * 3
     assert len(deltas) == 4 * 5
     assert len(bootstrap) == 4
+    assert len(model_contrasts) == 2
     assert manifest["training_performed"] is False
     assert manifest["checkpoint_reselection_performed"] is False
     assert manifest["compact_consensus_tested"] is False
     assert manifest["primary_candidate_remains_frozen"] == PRIMARY_CANDIDATE
+    assert manifest["integrity_verification"]["checkpoint_evaluation_count"] == 20
+    assert manifest["integrity_verification"]["row_alignment_exact"] is True
     pd.testing.assert_frame_equal(inventory_before, inventory_after)
+
+    duplicated = pd.concat(
+        [inventory_after.iloc[:-1], inventory_after.iloc[[0]]], ignore_index=True
+    )
+    with pytest.raises(ValueError, match="missing, duplicated"):
+        verify_test_result_integrity(
+            duplicated,
+            output,
+            Path(frozen_test_workspace["dataset_dir"]),
+        )
+
+    prediction_path = (
+        output
+        / "runs"
+        / PRIMARY_CANDIDATE
+        / "gru"
+        / "seed_7"
+        / "test_predictions.csv"
+    )
+    prediction = pd.read_csv(prediction_path)
+    prediction.loc[0, "observed_future_bis"] += 1.0
+    prediction.to_csv(prediction_path, index=False)
+    with pytest.raises(ValueError, match="alignment mismatch"):
+        verify_test_result_integrity(
+            inventory_after,
+            output,
+            Path(frozen_test_workspace["dataset_dir"]),
+        )
 
 
 def test_partial_resume_runs_only_missing_inference(

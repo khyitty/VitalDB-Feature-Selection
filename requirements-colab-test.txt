@@ -1,0 +1,7 @@
+# Frozen held-out inference reads existing NPZ/CSV/checkpoint artifacts only.
+# Retain Google Colab's preinstalled pandas 2.x and CUDA-enabled PyTorch builds.
+# Never add vitaldb, wfdb, torch, torchvision, torchaudio, or pandas here.
+numpy
+scipy
+matplotlib
+scikit-learn

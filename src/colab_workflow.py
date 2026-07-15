@@ -76,6 +76,17 @@ GPU_BENCHMARK_COLUMNS = (
     "status",
 )
 FORBIDDEN_COLAB_DISTRIBUTIONS = frozenset({"torch", "torchvision", "torchaudio"})
+FROZEN_TEST_PROTECTED_DISTRIBUTIONS = frozenset(
+    {*FORBIDDEN_COLAB_DISTRIBUTIONS, "pandas"}
+)
+FROZEN_TEST_REQUIRED_IMPORTS = (
+    "numpy",
+    "scipy",
+    "pandas",
+    "torch",
+    "matplotlib",
+    "sklearn",
+)
 
 
 def dump_json(payload: Mapping[str, Any], path: Path) -> None:
@@ -126,19 +137,47 @@ def missing_colab_requirements(path: Path) -> list[str]:
     return missing
 
 
-def validate_pip_install_plan(payload: Mapping[str, Any]) -> None:
-    """Reject a pip dry-run plan that would install any PyTorch distribution."""
+def validate_pip_install_plan(
+    payload: Mapping[str, Any],
+    protected_distributions: Sequence[str] = FORBIDDEN_COLAB_DISTRIBUTIONS,
+) -> None:
+    """Reject a pip dry-run plan that would replace protected distributions."""
 
     planned = {
         str(item.get("metadata", {}).get("name", "")).lower().replace("_", "-")
         for item in payload.get("install", [])
     }
-    forbidden = sorted(FORBIDDEN_COLAB_DISTRIBUTIONS & planned)
+    protected = {name.lower().replace("_", "-") for name in protected_distributions}
+    forbidden = sorted(protected & planned)
     if forbidden:
         raise RuntimeError(
-            "Dependency resolution would replace Colab PyTorch with "
+            "Dependency resolution would replace protected Colab packages "
             f"{forbidden}; installation aborted."
         )
+
+
+def frozen_test_runtime_versions() -> dict[str, Any]:
+    """Validate inference imports while retaining Colab pandas and CUDA PyTorch."""
+
+    imported: dict[str, str | None] = {}
+    for module_name in FROZEN_TEST_REQUIRED_IMPORTS:
+        module = __import__(module_name)
+        imported[module_name] = getattr(module, "__version__", None)
+    pandas_major = int(pd.__version__.split(".", maxsplit=1)[0])
+    if pandas_major >= 3:
+        raise RuntimeError(
+            f"Frozen-test inference requires the Colab pandas 2.x line; found {pd.__version__}."
+        )
+    return {
+        "package_versions": imported,
+        "pandas_version": pd.__version__,
+        "pandas_major_version": pandas_major,
+        "torch_version": torch.__version__,
+        "torch_cuda_runtime_version": torch.version.cuda,
+        "torch_cuda_is_available": bool(torch.cuda.is_available()),
+        "vitaldb_required": False,
+        "wfdb_required": False,
+    }
 
 
 def _git_commit(repo_dir: Path) -> str | None:

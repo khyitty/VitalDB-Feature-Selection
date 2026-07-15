@@ -8,6 +8,7 @@ import logging
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
+from time import perf_counter
 from typing import Any, Callable, Mapping, Sequence
 
 import matplotlib
@@ -101,6 +102,7 @@ FINAL_TABLES = (
     "paired_test_seed_deltas.csv",
     "patient_level_test_metrics.csv",
     "hierarchical_bootstrap_test_contrasts.csv",
+    "paired_model_test_contrasts.csv",
 )
 
 InferenceFunction = Callable[[Mapping[str, Any], Path, str, int], pd.DataFrame]
@@ -278,6 +280,10 @@ def build_checkpoint_inventory(
                         ),
                         "dataset_fingerprint": fingerprint,
                         "validation_selected_checkpoint_only": True,
+                        "run_complete": status.get("status") == "complete",
+                        "run_test_evaluated": status.get("test_evaluated"),
+                        "evaluate_test": config.get("evaluate_test"),
+                        "inference_only": True,
                     }
                 )
     inventory = pd.DataFrame(rows)
@@ -437,6 +443,154 @@ def _validate_predictions(frame: pd.DataFrame) -> pd.DataFrame:
     if not np.isfinite(numeric).all():
         raise ValueError("Test predictions contain non-finite values.")
     return result
+
+
+def _numeric_values_are_finite(value: Any) -> bool:
+    """Return false only for non-finite numeric leaves in a nested artifact."""
+
+    if isinstance(value, Mapping):
+        return all(_numeric_values_are_finite(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return all(_numeric_values_are_finite(item) for item in value)
+    if isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(
+        value, bool
+    ):
+        return bool(np.isfinite(value))
+    return True
+
+
+def verify_test_result_integrity(
+    inventory: pd.DataFrame,
+    output_dir: Path,
+    dataset_dir: Path,
+) -> dict[str, Any]:
+    """Verify all 20 outputs, source inventory, and exact held-out row pairing."""
+
+    expected_keys = {
+        (candidate, model, seed)
+        for candidate in CANDIDATES
+        for model in MODELS
+        for seed in SEEDS
+    }
+    observed_keys = {
+        (str(row.candidate), str(row.model), int(row.seed))
+        for row in inventory.itertuples()
+    }
+    if len(inventory) != 20 or len(observed_keys) != 20 or observed_keys != expected_keys:
+        raise ValueError("Held-out inventory is missing, duplicated, or contains an extra run.")
+    if "compact_consensus" in set(inventory["candidate"]):
+        raise ValueError("compact_consensus is prohibited from held-out evaluation.")
+    if set(inventory["checkpoint_name"]) != {"best_model.pt"}:
+        raise ValueError("Held-out inventory contains a non-best checkpoint.")
+
+    dataset = VitalBISDataset(
+        dataset_dir, "test", dynamic_features=REFERENCE_FEATURES
+    )
+    expected = pd.DataFrame(
+        {
+            "sample_index": np.arange(len(dataset), dtype=np.int64),
+            "case_id": dataset.case_ids,
+            "target_timestamp": dataset.metadata["target_timestamp"].to_numpy(
+                dtype=np.int64
+            ),
+            "observed_future_bis": dataset.arrays["y_bis"].astype(float),
+        }
+    )
+    alignment_columns = [
+        "sample_index",
+        "case_id",
+        "target_timestamp",
+        "observed_future_bis",
+    ]
+    canonical: pd.DataFrame | None = None
+    patient_ids = sorted(expected["case_id"].astype(int).unique().tolist())
+    for record in inventory.to_dict("records"):
+        key = (record["candidate"], record["model"], int(record["seed"]))
+        run_output = _run_output_dir(output_dir, record)
+        prediction_path = run_output / "test_predictions.csv"
+        metrics_path = run_output / "test_metrics.json"
+        patient_path = run_output / "patient_metrics.csv"
+        if not all(path.is_file() for path in (prediction_path, metrics_path, patient_path)):
+            raise ValueError(f"Missing held-out run artifact for {key}: {run_output}")
+        prediction = _validate_predictions(pd.read_csv(prediction_path))
+        alignment = prediction.loc[:, alignment_columns]
+        if not np.array_equal(
+            alignment[["sample_index", "case_id", "target_timestamp"]].to_numpy(
+                dtype=np.int64
+            ),
+            expected[["sample_index", "case_id", "target_timestamp"]].to_numpy(
+                dtype=np.int64
+            ),
+        ) or not np.allclose(
+            alignment["observed_future_bis"].to_numpy(float),
+            expected["observed_future_bis"].to_numpy(float),
+            rtol=0.0,
+            atol=1e-6,
+        ):
+            raise ValueError(f"Held-out patient/timestamp/target alignment mismatch for {key}.")
+        if canonical is None:
+            canonical = alignment
+        elif not np.array_equal(
+            alignment[["sample_index", "case_id", "target_timestamp"]].to_numpy(),
+            canonical[["sample_index", "case_id", "target_timestamp"]].to_numpy(),
+        ) or not np.allclose(
+            alignment["observed_future_bis"].to_numpy(float),
+            canonical["observed_future_bis"].to_numpy(float),
+            rtol=0.0,
+            atol=1e-6,
+        ):
+            raise ValueError(f"Candidate/reference target pairing mismatch for {key}.")
+        metrics = load_json(metrics_path)
+        if not _numeric_values_are_finite(metrics):
+            raise ValueError(f"Non-finite held-out metric detected for {key}.")
+        if metrics.get("predictions_sha256") != sha256_file(prediction_path):
+            raise ValueError(f"Prediction hash mismatch for {key}.")
+        patients = pd.read_csv(patient_path)
+        if sorted(patients["case_id"].astype(int).tolist()) != patient_ids:
+            raise ValueError(f"Patient-level aggregation mismatch for {key}.")
+        required_patient_metrics = ["case_id", "number_of_windows", "mae", "rmse"]
+        missing_patient_metrics = sorted(
+            set(required_patient_metrics) - set(patients.columns)
+        )
+        if missing_patient_metrics:
+            raise ValueError(
+                f"Missing patient-level metrics for {key}: {missing_patient_metrics}"
+            )
+        required_numeric = patients[required_patient_metrics].to_numpy(float)
+        if not np.isfinite(required_numeric).all():
+            raise ValueError(f"Non-finite patient metric detected for {key}.")
+        for metric_name in ("high_bis_auprc", "high_bis_auroc"):
+            defined_name = f"{metric_name}_defined"
+            if metric_name not in patients or defined_name not in patients:
+                raise ValueError(
+                    f"Missing patient-level classification fields for {key}: "
+                    f"{metric_name}, {defined_name}"
+                )
+            metric = pd.to_numeric(patients[metric_name], errors="coerce")
+            defined = patients[defined_name].astype(bool)
+            if not np.isfinite(metric[defined].to_numpy(float)).all():
+                raise ValueError(
+                    f"Defined patient-level {metric_name} is non-finite for {key}."
+                )
+            if metric[~defined].notna().any():
+                raise ValueError(
+                    f"Undefined patient-level {metric_name} has a numeric value for {key}."
+                )
+    assert canonical is not None
+    canonical_sha = _sha256_text(
+        canonical.to_csv(index=False, lineterminator="\n")
+    )
+    return {
+        "checkpoint_evaluation_count": 20,
+        "duplicate_run_count": 0,
+        "missing_run_count": 0,
+        "test_window_count": len(expected),
+        "test_patient_count": len(patient_ids),
+        "row_alignment_exact": True,
+        "candidate_reference_pairing_exact": True,
+        "all_metrics_finite": True,
+        "canonical_alignment_sha256": canonical_sha,
+    }
 
 
 def _summarize_prediction(
@@ -673,6 +827,31 @@ def paired_test_statistics(
     return seed_details, pd.DataFrame(bootstrap_rows)
 
 
+def paired_model_test_contrasts(seed_details: pd.DataFrame) -> pd.DataFrame:
+    """Return one prespecified Attention-minus-GRU summary per candidate."""
+
+    columns = [
+        "comparison",
+        "fixed_group",
+        "mean_delta",
+        "delta_standard_deviation",
+        "median_delta",
+        "min_delta",
+        "max_delta",
+        "left_better_seed_count",
+        "mean_relative_mae_change_percent",
+        "direction",
+    ]
+    return (
+        seed_details.loc[
+            seed_details["comparison"] == "attention_minus_gru", columns
+        ]
+        .drop_duplicates()
+        .sort_values("fixed_group")
+        .reset_index(drop=True)
+    )
+
+
 def _save_figures(run_level: pd.DataFrame, bootstrap: pd.DataFrame, output_dir: Path) -> list[Path]:
     figures_dir = output_dir / "figures"
     figures_dir.mkdir(parents=True, exist_ok=True)
@@ -726,7 +905,12 @@ def _save_figures(run_level: pd.DataFrame, bootstrap: pd.DataFrame, output_dir: 
     return paths
 
 
-def _report(aggregate: pd.DataFrame, deltas: pd.DataFrame, bootstrap: pd.DataFrame) -> str:
+def _report(
+    aggregate: pd.DataFrame,
+    deltas: pd.DataFrame,
+    model_contrasts: pd.DataFrame,
+    bootstrap: pd.DataFrame,
+) -> str:
     return f"""# Frozen Predictive Held-Out Test Evaluation
 
 ## Prespecified scope
@@ -743,6 +927,12 @@ The primary endpoint is patient-level MAE (lower is better). The predictive prim
 Negative deltas favor the left member of each named comparison. These descriptive results are not a p-value winner rule.
 ```text
 {deltas.to_string(index=False)}
+```
+
+## Paired model contrasts
+Attention-minus-GRU comparisons are paired within the same candidate and seed.
+```text
+{model_contrasts.to_string(index=False)}
 ```
 
 ## Hierarchical paired bootstrap
@@ -763,6 +953,9 @@ The percentile intervals resample paired seeds and paired patients, never window
 def _verify_complete_output(output_dir: Path, manifest: Mapping[str, Any]) -> None:
     if manifest.get("status") != "complete" or manifest.get("run_count") != 20:
         raise ValueError("Existing test manifest is not a complete 20-run evaluation.")
+    missing = [name for name in FINAL_TABLES if not (output_dir / name).is_file()]
+    if missing:
+        raise ValueError(f"Complete test manifest is missing required tables: {missing}")
     for item in manifest.get("generated_output_fingerprints", []):
         path = output_dir / item["path"]
         if not path.is_file() or sha256_file(path) != item["sha256"]:
@@ -787,6 +980,7 @@ def run_frozen_predictive_test_evaluation(
 ) -> dict[str, Any]:
     """Execute or resume the single prespecified 20-checkpoint test inference."""
 
+    overall_started = perf_counter()
     if confirmation != CONFIRMATION_PHRASE:
         raise ValueError(f"Exact confirmation required: {CONFIRMATION_PHRASE}")
     if bootstrap_replicates < 1:
@@ -827,28 +1021,50 @@ def run_frozen_predictive_test_evaluation(
         if manifest.get("execution_contract") != contract:
             raise ValueError("Existing complete test evaluation has an incompatible contract.")
         _verify_complete_output(output_dir, manifest)
+        integrity = verify_test_result_integrity(inventory, output_dir, dataset_dir)
+        if manifest.get("integrity_verification") != integrity:
+            raise ValueError("Existing test integrity verification no longer matches outputs.")
+        LOGGER.info("Verified and skipped complete 20-checkpoint held-out evaluation.")
         return {"status": "complete", "skipped": True, "run_count": 20}
 
     metrics_rows: list[dict[str, Any]] = []
     patient_frames: list[pd.DataFrame] = []
-    for record in inventory.to_dict("records"):
-        metrics, patients = _load_or_evaluate_run(
-            record,
-            dataset_dir=dataset_dir,
-            output_dir=output_dir,
-            dataset_sha=test_fingerprint["combined_sha256"],
-            device=device,
-            batch_size=batch_size,
-            inference_fn=inference_fn,
-        )
-        metrics_rows.append(metrics)
-        patient_frames.append(patients)
+    records = inventory.to_dict("records")
+    for index, record in enumerate(records, start=1):
+        run_started = perf_counter()
         LOGGER.info(
-            "Completed held-out inference: %s/%s/seed_%s",
+            "[%d/20] %s / %s / seed %s: inference verification started",
+            index,
             record["candidate"],
             record["model"],
             record["seed"],
         )
+        try:
+            metrics, patients = _load_or_evaluate_run(
+                record,
+                dataset_dir=dataset_dir,
+                output_dir=output_dir,
+                dataset_sha=test_fingerprint["combined_sha256"],
+                device=device,
+                batch_size=batch_size,
+                inference_fn=inference_fn,
+            )
+        except Exception as error:
+            raise RuntimeError(
+                f"Failed at [{index}/20] {record['candidate']} / {record['model']} / "
+                f"seed {record['seed']}: {error}"
+            ) from error
+        metrics_rows.append(metrics)
+        patient_frames.append(patients)
+        LOGGER.info(
+            "[%d/20] complete in %.2fs; %d complete, %d remaining",
+            index,
+            perf_counter() - run_started,
+            index,
+            20 - index,
+        )
+
+    integrity = verify_test_result_integrity(inventory, output_dir, dataset_dir)
 
     final_paths = [output_dir / name for name in FINAL_TABLES]
     if any(path.exists() for path in final_paths):
@@ -856,24 +1072,38 @@ def run_frozen_predictive_test_evaluation(
     run_level = _run_level_frame(metrics_rows)
     patients = pd.concat(patient_frames, ignore_index=True)
     aggregate = aggregate_test_candidates(run_level)
+    LOGGER.info(
+        "Hierarchical paired bootstrap started: %d replicates, seed %d",
+        bootstrap_replicates,
+        bootstrap_seed,
+    )
+    bootstrap_started = perf_counter()
     deltas, bootstrap = paired_test_statistics(
         run_level,
         patients,
         replicates=bootstrap_replicates,
         seed=bootstrap_seed,
     )
+    LOGGER.info(
+        "Hierarchical paired bootstrap complete in %.2fs",
+        perf_counter() - bootstrap_started,
+    )
+    model_contrasts = paired_model_test_contrasts(deltas)
     tables = {
         "test_run_level_metrics.csv": run_level,
         "test_candidate_aggregate.csv": aggregate,
         "paired_test_seed_deltas.csv": deltas,
         "patient_level_test_metrics.csv": patients,
         "hierarchical_bootstrap_test_contrasts.csv": bootstrap,
+        "paired_model_test_contrasts.csv": model_contrasts,
     }
     for name, frame in tables.items():
         _write_once_csv(output_dir / name, frame)
     figures = _save_figures(run_level, bootstrap, output_dir)
     report_path = output_dir / "frozen_predictive_test_report.md"
-    _write_once_text(report_path, _report(aggregate, deltas, bootstrap))
+    _write_once_text(
+        report_path, _report(aggregate, deltas, model_contrasts, bootstrap)
+    )
 
     after_inventory = build_checkpoint_inventory(dataset_dir, strict_root, full17_root)
     if current_inventory.to_csv(index=False) != after_inventory.to_csv(index=False):
@@ -903,6 +1133,21 @@ def run_frozen_predictive_test_evaluation(
         "bootstrap_seed": bootstrap_seed,
         "bootstrap_resampling_units": "paired seed and held-out patient",
         "execution_contract": contract,
+        "integrity_verification": integrity,
+        "input_fingerprints": [
+            {
+                "path": "frozen_decision_snapshot.json",
+                "sha256": sha256_file(output_dir / "frozen_decision_snapshot.json"),
+            },
+            {
+                "path": "evaluated_checkpoint_inventory.csv",
+                "sha256": sha256_file(inventory_path),
+            },
+            {
+                "path": str(source_analysis_manifest),
+                "sha256": sha256_file(source_analysis_manifest),
+            },
+        ],
         "generated_output_fingerprints": [
             {
                 "path": str(path.relative_to(output_dir)).replace("\\", "/"),
@@ -913,6 +1158,10 @@ def run_frozen_predictive_test_evaluation(
         ],
     }
     _write_once_json(manifest_path, manifest)
+    LOGGER.info(
+        "One-time 20-checkpoint held-out evaluation complete in %.2fs",
+        perf_counter() - overall_started,
+    )
     return {"status": "complete", "skipped": False, "run_count": 20}
 
 

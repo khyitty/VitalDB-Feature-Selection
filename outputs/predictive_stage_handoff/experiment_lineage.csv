@@ -1,0 +1,11 @@
+stage_order,stage,description,recorded_by_commit,status
+1,data_preparation,"Leakage-safe patient split, train-fitted preprocessing, and 10-second windows",16c2aab1f9ce04b4c375060026d3819a13d46aaf,complete
+2,gpu_smoke,GRU and explicit-attention Colab GPU smoke verification,16c2aab1f9ce04b4c375060026d3819a13d46aaf,complete
+3,group_retraining_40_runs,Four feature groups by two models by five seeds,16c2aab1f9ce04b4c375060026d3819a13d46aaf,complete
+4,group_analysis,Validation-only grouped comparison and paired statistics,16c2aab1f9ce04b4c375060026d3819a13d46aaf,complete
+5,train_only_predictive_feature_selection,Train-only predictive candidate construction,16c2aab1f9ce04b4c375060026d3819a13d46aaf,complete
+6,frozen_candidate_retraining,Twenty new and thirty reused validation-only runs,16c2aab1f9ce04b4c375060026d3819a13d46aaf,complete
+7,frozen_candidate_analysis_50_runs,Five candidates by two models by five seeds,16c2aab1f9ce04b4c375060026d3819a13d46aaf,complete
+8,frozen_predictive_decision,Pre-test strict_consensus primary freeze,16c2aab1f9ce04b4c375060026d3819a13d46aaf,complete
+9,one_time_test_workflow,Guarded inference-only internal held-out evaluation,16c2aab1f9ce04b4c375060026d3819a13d46aaf,complete
+10,rl_audit_blocked,External professor RL implementation not present,16c2aab1f9ce04b4c375060026d3819a13d46aaf,blocked_external

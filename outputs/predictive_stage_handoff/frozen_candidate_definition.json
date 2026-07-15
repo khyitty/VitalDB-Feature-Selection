@@ -1,0 +1,41 @@
+{
+  "decision_sha256": "d5c1831572ca1caa9d171aa6a239ad4816be5021fb27dcaa276191fa50d75489",
+  "primary": {
+    "name": "strict_consensus",
+    "features_ordered": [
+      "bis",
+      "bis_sqi",
+      "ppf_rate",
+      "ppf_volume",
+      "ppf_cp",
+      "rftn_volume",
+      "bis_slope"
+    ],
+    "role": "frozen primary predictive candidate"
+  },
+  "reference": {
+    "name": "full17_reference",
+    "features_ordered": [
+      "bis",
+      "bis_sqi",
+      "hr",
+      "mbp",
+      "sbp",
+      "dbp",
+      "spo2",
+      "etco2",
+      "ppf_rate",
+      "ppf_volume",
+      "ppf_cp",
+      "ppf_ce",
+      "rftn_rate",
+      "rftn_volume",
+      "rftn_cp",
+      "rftn_ce",
+      "bis_slope"
+    ],
+    "role": "frozen predictive reference"
+  },
+  "excluded_test_candidate": "compact_consensus",
+  "candidate_changes_after_test_prohibited": true
+}

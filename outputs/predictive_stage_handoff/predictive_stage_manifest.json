@@ -1,0 +1,232 @@
+{
+  "package_timestamp_utc": "2026-07-15T19:47:18.804666+00:00",
+  "package_git_commit": "16c2aab1f9ce04b4c375060026d3819a13d46aaf",
+  "decision_path": "outputs/frozen_predictive_decision_30s/frozen_predictive_decision.json",
+  "decision_sha256": "d5c1831572ca1caa9d171aa6a239ad4816be5021fb27dcaa276191fa50d75489",
+  "dataset_metadata_sha256": "1f1f3c6dd599f4df953e6299d6d018a5c2d0ec2ad1f59fde40780f82f7b5d58c",
+  "preprocessing_sha256": "b4d1adc73832c755ad7f48a640a74d86b995e9c25062c4959f98fac65244e2ba",
+  "checkpoint_count": 20,
+  "checkpoint_hashes_complete": false,
+  "checkpoint_fingerprints": [
+    {
+      "candidate": "full17_reference",
+      "model": "attention",
+      "seed": 7,
+      "checkpoint_path": "outputs/group_retraining_validation_only/full17/attention/seed_7/best_model.pt",
+      "checkpoint_sha256": "",
+      "config_sha256": "",
+      "hash_status": "pending_drive_preflight"
+    },
+    {
+      "candidate": "full17_reference",
+      "model": "attention",
+      "seed": 21,
+      "checkpoint_path": "outputs/group_retraining_validation_only/full17/attention/seed_21/best_model.pt",
+      "checkpoint_sha256": "",
+      "config_sha256": "",
+      "hash_status": "pending_drive_preflight"
+    },
+    {
+      "candidate": "full17_reference",
+      "model": "attention",
+      "seed": 42,
+      "checkpoint_path": "outputs/group_retraining_validation_only/full17/attention/seed_42/best_model.pt",
+      "checkpoint_sha256": "",
+      "config_sha256": "",
+      "hash_status": "pending_drive_preflight"
+    },
+    {
+      "candidate": "full17_reference",
+      "model": "attention",
+      "seed": 84,
+      "checkpoint_path": "outputs/group_retraining_validation_only/full17/attention/seed_84/best_model.pt",
+      "checkpoint_sha256": "",
+      "config_sha256": "",
+      "hash_status": "pending_drive_preflight"
+    },
+    {
+      "candidate": "full17_reference",
+      "model": "attention",
+      "seed": 123,
+      "checkpoint_path": "outputs/group_retraining_validation_only/full17/attention/seed_123/best_model.pt",
+      "checkpoint_sha256": "",
+      "config_sha256": "",
+      "hash_status": "pending_drive_preflight"
+    },
+    {
+      "candidate": "full17_reference",
+      "model": "gru",
+      "seed": 7,
+      "checkpoint_path": "outputs/group_retraining_validation_only/full17/gru/seed_7/best_model.pt",
+      "checkpoint_sha256": "",
+      "config_sha256": "",
+      "hash_status": "pending_drive_preflight"
+    },
+    {
+      "candidate": "full17_reference",
+      "model": "gru",
+      "seed": 21,
+      "checkpoint_path": "outputs/group_retraining_validation_only/full17/gru/seed_21/best_model.pt",
+      "checkpoint_sha256": "",
+      "config_sha256": "",
+      "hash_status": "pending_drive_preflight"
+    },
+    {
+      "candidate": "full17_reference",
+      "model": "gru",
+      "seed": 42,
+      "checkpoint_path": "outputs/group_retraining_validation_only/full17/gru/seed_42/best_model.pt",
+      "checkpoint_sha256": "",
+      "config_sha256": "",
+      "hash_status": "pending_drive_preflight"
+    },
+    {
+      "candidate": "full17_reference",
+      "model": "gru",
+      "seed": 84,
+      "checkpoint_path": "outputs/group_retraining_validation_only/full17/gru/seed_84/best_model.pt",
+      "checkpoint_sha256": "",
+      "config_sha256": "",
+      "hash_status": "pending_drive_preflight"
+    },
+    {
+      "candidate": "full17_reference",
+      "model": "gru",
+      "seed": 123,
+      "checkpoint_path": "outputs/group_retraining_validation_only/full17/gru/seed_123/best_model.pt",
+      "checkpoint_sha256": "",
+      "config_sha256": "",
+      "hash_status": "pending_drive_preflight"
+    },
+    {
+      "candidate": "strict_consensus",
+      "model": "attention",
+      "seed": 7,
+      "checkpoint_path": "outputs/frozen_candidate_retraining_validation_only/strict_consensus/attention/seed_7/best_model.pt",
+      "checkpoint_sha256": "",
+      "config_sha256": "",
+      "hash_status": "pending_drive_preflight"
+    },
+    {
+      "candidate": "strict_consensus",
+      "model": "attention",
+      "seed": 21,
+      "checkpoint_path": "outputs/frozen_candidate_retraining_validation_only/strict_consensus/attention/seed_21/best_model.pt",
+      "checkpoint_sha256": "",
+      "config_sha256": "",
+      "hash_status": "pending_drive_preflight"
+    },
+    {
+      "candidate": "strict_consensus",
+      "model": "attention",
+      "seed": 42,
+      "checkpoint_path": "outputs/frozen_candidate_retraining_validation_only/strict_consensus/attention/seed_42/best_model.pt",
+      "checkpoint_sha256": "",
+      "config_sha256": "",
+      "hash_status": "pending_drive_preflight"
+    },
+    {
+      "candidate": "strict_consensus",
+      "model": "attention",
+      "seed": 84,
+      "checkpoint_path": "outputs/frozen_candidate_retraining_validation_only/strict_consensus/attention/seed_84/best_model.pt",
+      "checkpoint_sha256": "",
+      "config_sha256": "",
+      "hash_status": "pending_drive_preflight"
+    },
+    {
+      "candidate": "strict_consensus",
+      "model": "attention",
+      "seed": 123,
+      "checkpoint_path": "outputs/frozen_candidate_retraining_validation_only/strict_consensus/attention/seed_123/best_model.pt",
+      "checkpoint_sha256": "",
+      "config_sha256": "",
+      "hash_status": "pending_drive_preflight"
+    },
+    {
+      "candidate": "strict_consensus",
+      "model": "gru",
+      "seed": 7,
+      "checkpoint_path": "outputs/frozen_candidate_retraining_validation_only/strict_consensus/gru/seed_7/best_model.pt",
+      "checkpoint_sha256": "",
+      "config_sha256": "",
+      "hash_status": "pending_drive_preflight"
+    },
+    {
+      "candidate": "strict_consensus",
+      "model": "gru",
+      "seed": 21,
+      "checkpoint_path": "outputs/frozen_candidate_retraining_validation_only/strict_consensus/gru/seed_21/best_model.pt",
+      "checkpoint_sha256": "",
+      "config_sha256": "",
+      "hash_status": "pending_drive_preflight"
+    },
+    {
+      "candidate": "strict_consensus",
+      "model": "gru",
+      "seed": 42,
+      "checkpoint_path": "outputs/frozen_candidate_retraining_validation_only/strict_consensus/gru/seed_42/best_model.pt",
+      "checkpoint_sha256": "",
+      "config_sha256": "",
+      "hash_status": "pending_drive_preflight"
+    },
+    {
+      "candidate": "strict_consensus",
+      "model": "gru",
+      "seed": 84,
+      "checkpoint_path": "outputs/frozen_candidate_retraining_validation_only/strict_consensus/gru/seed_84/best_model.pt",
+      "checkpoint_sha256": "",
+      "config_sha256": "",
+      "hash_status": "pending_drive_preflight"
+    },
+    {
+      "candidate": "strict_consensus",
+      "model": "gru",
+      "seed": 123,
+      "checkpoint_path": "outputs/frozen_candidate_retraining_validation_only/strict_consensus/gru/seed_123/best_model.pt",
+      "checkpoint_sha256": "",
+      "config_sha256": "",
+      "hash_status": "pending_drive_preflight"
+    }
+  ],
+  "large_artifacts_copied": false,
+  "predictive_control_distinction_recorded": true,
+  "state_contract_sha256": "e629b683cc4451f52958351e3df96206a991c2ea6f723cb6e1fc033755368b10",
+  "output_fingerprints": [
+    {
+      "path": "predictive_state_contract.json",
+      "sha256": "44175135b166b214cdb2605f7cb514fd9f5724745d32e03d870148ce271b2f83",
+      "size_bytes": 1296
+    },
+    {
+      "path": "frozen_candidate_definition.json",
+      "sha256": "3d96ec79307bb184eebbd3dd11d60c8f70f126bfe8e2ab0d1dd080a396fd9d78",
+      "size_bytes": 893
+    },
+    {
+      "path": "checkpoint_inventory.csv",
+      "sha256": "91d98dd27cd1e887fc6abb133fea57383033b371c13d111a99fcae056a474887",
+      "size_bytes": 7753
+    },
+    {
+      "path": "experiment_lineage.csv",
+      "sha256": "7e7863c5f5a23d1947460f786e2428c159a2b4e472a762ccb558b616124322a0",
+      "size_bytes": 1354
+    },
+    {
+      "path": "reproducibility_checklist.md",
+      "sha256": "9b733db83bfe9668a3e7c2b82ed03e86c58c9dbd97b09294e7749cc420c26b04",
+      "size_bytes": 732
+    },
+    {
+      "path": "predictive_stage_summary.md",
+      "sha256": "193cbdf71e22525dfd2573ce74ecae58b20180436d4444b993aab41db239a492",
+      "size_bytes": 455
+    },
+    {
+      "path": "external_rl_assets_request.md",
+      "sha256": "871b844eb3746b40e9cd9cfb630ca9229dc710afe1edded2b9d64c028bddbcc7",
+      "size_bytes": 410
+    }
+  ]
+}

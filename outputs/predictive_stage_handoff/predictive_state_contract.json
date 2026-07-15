@@ -1,0 +1,44 @@
+{
+  "role": "predictive-only future-BIS state",
+  "primary_candidate": "strict_consensus",
+  "dynamic_feature_names_ordered": [
+    "bis",
+    "bis_sqi",
+    "ppf_rate",
+    "ppf_volume",
+    "ppf_cp",
+    "rftn_volume",
+    "bis_slope"
+  ],
+  "static_covariate_names_ordered": [
+    "age",
+    "sex_male",
+    "height",
+    "weight",
+    "bmi",
+    "asa"
+  ],
+  "sampling_interval_seconds": 10,
+  "action_interval_seconds_for_later_rl": 10,
+  "history_window_seconds": 60,
+  "history_steps": 6,
+  "prediction_horizon_seconds": 30,
+  "dynamic_tensor_shape": [
+    "batch",
+    6,
+    7
+  ],
+  "static_tensor_shape": [
+    "batch",
+    6
+  ],
+  "observation_mask_shape": [
+    "batch",
+    6,
+    7
+  ],
+  "preprocessing_artifact": "data/modeling/full/preprocessing.pkl",
+  "preprocessing_sha256": "b4d1adc73832c755ad7f48a640a74d86b995e9c25062c4959f98fac65244e2ba",
+  "missing_value_policy": "Apply only train-fitted imputation and normalization; retain the aligned observation mask and never fabricate unavailable tracks.",
+  "control_warning": "Do not use this predictive subset directly as a control-aware state. Preserve the external baseline action, target, drug-history, remifentanil, and exogenous variables before adding predictive features."
+}
