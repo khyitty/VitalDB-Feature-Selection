@@ -17,6 +17,8 @@ from src.pkpd.demographics import PatientDemographics
 from src.pkpd.schedules import PiecewiseConstantSchedule, RateSegment
 from src.rl_env.cohort import CohortManifest, PatientCohort
 
+from .official_demographics import ensure_official_demographics_cache
+
 
 @dataclass(frozen=True)
 class CohortBundle:
@@ -423,6 +425,8 @@ def load_vitaldb_virtual_cohort(
     project_data_root: Path | None = None,
     allow_test_demographics: bool = True,
     missing_policy: Literal["error", "train_impute"] = "error",
+    allow_official_demographics_download: bool = False,
+    official_demographics_cache: Path | None = None,
 ) -> CohortBundle:
     """Resolve split-safe demographics without reading any trajectory arrays."""
 
@@ -439,11 +443,45 @@ def load_vitaldb_virtual_cohort(
             "manifest; test trajectories and outcomes remain sealed."
         )
     manifest = _read_split_manifest(dataset_dir)
-    raw, source, source_kind, source_columns, searched = _resolve_demographics(
-        dataset_dir,
-        demographics_csv=demographics_csv,
-        project_data_root=project_root,
-    )
+    official_provenance: dict[str, Any] = {}
+    try:
+        raw, source, source_kind, source_columns, searched = _resolve_demographics(
+            dataset_dir,
+            demographics_csv=demographics_csv,
+            project_data_root=project_root,
+        )
+    except CohortPreflightError as resolution_error:
+        if not allow_official_demographics_download or demographics_csv is not None:
+            raise
+        cache_path = official_demographics_cache
+        if cache_path is None and project_root is not None:
+            cache_path = project_root / "clinical/vitaldb_ppo_cohort_demographics.csv"
+        if cache_path is None:
+            raise CohortPreflightError(
+                f"{resolution_error} Official fallback also requires "
+                "--official-demographics-cache or --project-data-root."
+            ) from resolution_error
+        cache_path = cache_path.expanduser().resolve()
+        all_case_ids = (
+            *manifest.train_patient_ids,
+            *manifest.validation_patient_ids,
+            *manifest.test_patient_ids,
+        )
+        try:
+            official_provenance = ensure_official_demographics_cache(
+                all_case_ids, cache_path
+            )
+            raw, source, _, source_columns, searched = _resolve_demographics(
+                dataset_dir,
+                demographics_csv=cache_path,
+                project_data_root=project_root,
+            )
+            source_kind = "official_vitaldb_clinical_api_cache"
+        except Exception as official_error:
+            raise CohortPreflightError(
+                f"{resolution_error} Explicit official clinical-metadata fallback failed: "
+                f"{official_error}"
+            ) from official_error
     demographics, duplicate_rows_collapsed = _deduplicate_demographics(raw)
     selected, missing_counts, statistics, imputed_fields = _prepare_demographics(
         demographics, manifest, missing_policy=missing_policy
@@ -518,6 +556,7 @@ def load_vitaldb_virtual_cohort(
         "imputed_case_fields": imputed_fields,
         "searched_candidate_paths": list(searched),
         "selected_demographics_path": searched[-1] if searched else source,
+        "official_clinical_metadata": official_provenance,
     }
     return CohortBundle(
         cohort=PatientCohort(patients=patients, manifest=manifest),

@@ -53,6 +53,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         choices=("error", "train_impute"),
         default="error",
     )
+    parser.add_argument(
+        "--allow-official-demographics-download",
+        action="store_true",
+        help=(
+            "If local resolution fails, download only official VitalDB clinical "
+            "metadata and filter it to frozen split case IDs."
+        ),
+    )
+    parser.add_argument(
+        "--official-demographics-cache",
+        type=Path,
+        help="Persistent CSV cache for the explicitly enabled official metadata fallback.",
+    )
     parser.add_argument("--protocol-dir", type=Path, default=ROOT / "outputs/ppo_protocol")
     parser.add_argument(
         "--output-root", type=Path, default=ROOT / "outputs/ppo_control_comparison"
@@ -72,6 +85,8 @@ def main(argv: list[str] | None = None) -> None:
         demographics_csv=args.demographics_csv,
         project_data_root=args.project_data_root,
         missing_policy=args.missing_demographics_policy,
+        allow_official_demographics_download=args.allow_official_demographics_download,
+        official_demographics_cache=args.official_demographics_cache,
     )
     requested = build_frozen_protocol(repo_dir=ROOT, cohort=cohort, ppo=PPOConfig())
     protocol = freeze_protocol(
@@ -93,6 +108,9 @@ def main(argv: list[str] | None = None) -> None:
         "demographics_source": cohort.demographics_source,
         "demographics_source_path": cohort.access_manifest["selected_demographics_path"],
         "demographics_source_kind": cohort.demographics_source_kind,
+        "official_clinical_metadata": cohort.access_manifest[
+            "official_clinical_metadata"
+        ],
         "demographics_source_columns": list(cohort.demographics_source_columns),
         "required_demographic_columns": ["caseid", "age", "sex", "height", "weight"],
         "missing_demographic_counts": cohort.missing_demographics,

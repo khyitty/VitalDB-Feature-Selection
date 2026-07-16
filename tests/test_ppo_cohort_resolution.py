@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import copy
+import gzip
 import inspect
+import io
 import json
 from pathlib import Path
 
@@ -17,6 +19,7 @@ from src.rl_training.manifests import (
     freeze_protocol,
     protocol_hash,
 )
+from src.rl_training.official_demographics import VITALDB_CASES_ENDPOINT
 
 
 ROOT = Path(__file__).parents[1]
@@ -114,6 +117,135 @@ def test_project_data_root_resolves_windows_metadata_path_by_filename(tmp_path: 
     dataset, data_root, source = _fixture_dataset(tmp_path)
     bundle = load_vitaldb_virtual_cohort(dataset, project_data_root=data_root)
     assert Path(bundle.access_manifest["selected_demographics_path"]) == source.resolve()
+
+
+class _ByteResponse:
+    def __init__(self, payload: bytes) -> None:
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return self.payload
+
+
+def _official_payload(rows: list[dict[str, object]]) -> bytes:
+    buffer = io.BytesIO()
+    frame = pd.DataFrame(rows).rename(columns={"sex_male": "sex"})
+    frame["sex"] = frame["sex"].map({1: "M", 0: "F"})
+    frame.to_csv(buffer, index=False)
+    return gzip.compress(buffer.getvalue())
+
+
+def test_explicit_official_fallback_matches_existing_cohort_and_caches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dataset, data_root, source = _fixture_dataset(tmp_path)
+    original = load_vitaldb_virtual_cohort(dataset, demographics_csv=source)
+    source.unlink()
+    calls: list[object] = []
+
+    def fake_urlopen(request, timeout):
+        calls.append((request.full_url, timeout))
+        return _ByteResponse(_official_payload(_rows()))
+
+    monkeypatch.setattr("src.rl_training.official_demographics.urlopen", fake_urlopen)
+    cache = data_root / "clinical/vitaldb_ppo_cohort_demographics.csv"
+    downloaded = load_vitaldb_virtual_cohort(
+        dataset,
+        project_data_root=data_root,
+        allow_official_demographics_download=True,
+        official_demographics_cache=cache,
+    )
+    assert downloaded.fingerprint == original.fingerprint
+    assert downloaded.demographics_source_kind == "official_vitaldb_clinical_api_cache"
+    assert calls == [(VITALDB_CASES_ENDPOINT, 60.0)]
+    assert cache.is_file() and cache.with_suffix(".provenance.json").is_file()
+    provenance = downloaded.access_manifest["official_clinical_metadata"]
+    assert provenance["selected_case_count"] == 4
+    assert provenance["trajectory_downloaded"] is False
+    assert provenance["outcomes_downloaded"] is False
+
+
+def test_official_cache_reuse_makes_no_network_call(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dataset, data_root, source = _fixture_dataset(tmp_path)
+    cache = data_root / "clinical/vitaldb_ppo_cohort_demographics.csv"
+    source.unlink()
+    monkeypatch.setattr(
+        "src.rl_training.official_demographics.urlopen",
+        lambda *args, **kwargs: _ByteResponse(_official_payload(_rows())),
+    )
+    load_vitaldb_virtual_cohort(
+        dataset,
+        project_data_root=data_root,
+        allow_official_demographics_download=True,
+        official_demographics_cache=cache,
+    )
+    monkeypatch.setattr(
+        "src.rl_training.official_demographics.urlopen",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("network called")),
+    )
+    bundle = load_vitaldb_virtual_cohort(
+        dataset,
+        project_data_root=data_root,
+        allow_official_demographics_download=True,
+        official_demographics_cache=cache,
+    )
+    assert bundle.access_manifest["official_clinical_metadata"]["cache_reused"] is True
+
+
+def test_official_fallback_rejects_missing_split_case_without_writing_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dataset, data_root, source = _fixture_dataset(tmp_path)
+    source.unlink()
+    monkeypatch.setattr(
+        "src.rl_training.official_demographics.urlopen",
+        lambda *args, **kwargs: _ByteResponse(_official_payload(_rows()[:-1])),
+    )
+    cache = data_root / "clinical/vitaldb_ppo_cohort_demographics.csv"
+    with pytest.raises(CohortPreflightError, match=r"missing=\[4\]"):
+        load_vitaldb_virtual_cohort(
+            dataset,
+            project_data_root=data_root,
+            allow_official_demographics_download=True,
+            official_demographics_cache=cache,
+        )
+    assert not cache.exists()
+
+
+def test_official_cache_tampering_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dataset, data_root, source = _fixture_dataset(tmp_path)
+    source.unlink()
+    monkeypatch.setattr(
+        "src.rl_training.official_demographics.urlopen",
+        lambda *args, **kwargs: _ByteResponse(_official_payload(_rows())),
+    )
+    cache = data_root / "clinical/vitaldb_ppo_cohort_demographics.csv"
+    load_vitaldb_virtual_cohort(
+        dataset,
+        project_data_root=data_root,
+        allow_official_demographics_download=True,
+        official_demographics_cache=cache,
+    )
+    frame = pd.read_csv(cache)
+    frame.loc[0, "age"] += 1
+    frame.to_csv(cache, index=False)
+    with pytest.raises(CohortPreflightError, match="fingerprint"):
+        load_vitaldb_virtual_cohort(
+            dataset,
+            project_data_root=data_root,
+            allow_official_demographics_download=True,
+            official_demographics_cache=cache,
+        )
 
 
 def test_missing_source_preflight_lists_paths_columns_and_required_input(tmp_path: Path) -> None:
@@ -326,4 +458,6 @@ def test_colab_notebooks_use_drive_paths_and_robust_error_reporting() -> None:
         assert "test.npz" not in source
     assert "repo / 'data/modeling/full'" not in full
     assert "--project-data-root" in full
+    assert "--allow-official-demographics-download" in full
+    assert "vitaldb_ppo_cohort_demographics.csv" in full
     assert "cohort_access_manifest.json" in validation

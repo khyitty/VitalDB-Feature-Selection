@@ -37,6 +37,13 @@ under `--project-data-root`, in that order. It never assumes that an untracked
 CSV exists inside the repository clone. In Colab, the modeling dataset is
 `/content/drive/MyDrive/VitalDB-Feature-Selection/data/modeling/full` and source
 discovery is rooted at `/content/drive/MyDrive/VitalDB-Feature-Selection/data`.
+If those sources are absent, the training notebook explicitly enables a fallback
+to the VitalDB official clinical-information endpoint
+`https://api.vitaldb.net/cases`. It downloads no tracks or outcomes, filters the
+response to the 98 frozen split case IDs, and atomically caches only `caseid`,
+`age`, `sex`, `height`, and `weight` under `data/clinical`. The cache and response
+fingerprints are recorded in a provenance sidecar. Library callers do not use
+the network unless this fallback is explicitly enabled.
 Test case IDs, split membership, and demographics may parameterize the frozen
 virtual-patient manifest. Test trajectories, outcomes, policy rollouts, tuning,
 and checkpoint selection remain prohibited and are recorded separately in
