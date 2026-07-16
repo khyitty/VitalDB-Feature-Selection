@@ -13,6 +13,16 @@ PolicyCondition = Literal[
     "attention_supported",
     "selected_control_aware",
 ]
+PrimaryStateProfile = Literal[
+    "original_reconstructed",
+    "all_supported",
+    "selected",
+]
+PRIMARY_STATE_PROFILES: tuple[PrimaryStateProfile, ...] = (
+    "original_reconstructed",
+    "all_supported",
+    "selected",
+)
 
 POLICY_CONDITIONS: tuple[PolicyCondition, ...] = (
     "yun_reconstructed",
@@ -92,6 +102,22 @@ def smoke_ppo_config(total_timesteps: int = 2048) -> PPOConfig:
         n_epochs=2,
         total_timesteps=total_timesteps,
         evaluation_frequency_timesteps=evaluation_frequency,
+        evaluation_episode_count=1,
+        episode_duration_seconds=120.0,
+    )
+
+
+def primary_smoke_ppo_config(total_timesteps: int = 1_000) -> PPOConfig:
+    """Return an exact-step common-MLP smoke configuration."""
+
+    if total_timesteps <= 0 or total_timesteps % 100 != 0:
+        raise ValueError("Primary smoke timesteps must be a positive multiple of 100.")
+    return PPOConfig(
+        n_steps=100,
+        batch_size=20,
+        n_epochs=2,
+        total_timesteps=total_timesteps,
+        evaluation_frequency_timesteps=total_timesteps,
         evaluation_episode_count=1,
         episode_duration_seconds=120.0,
     )

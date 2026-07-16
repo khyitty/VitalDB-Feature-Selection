@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import pickle
 from pathlib import Path
+import sys
 
 import numpy as np
 import pandas as pd
@@ -19,6 +20,7 @@ from src.colab_workflow import (
     GRU_SMOKE_REQUIRED,
     audit_colab_environment,
     inspect_run_completion,
+    run_streaming_command,
     validate_colab_requirements,
     validate_gpu_benchmark_schema,
     validate_modeling_artifacts,
@@ -43,6 +45,25 @@ def test_colab_dependencies_never_request_pytorch_replacement(tmp_path: Path) ->
         validate_pip_install_plan(
             {"install": [{"metadata": {"name": "torchvision"}}]}
         )
+
+
+def test_streaming_command_forces_unbuffered_python_and_emits_heartbeat(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    completed = run_streaming_command(
+        [
+            sys.executable,
+            "-c",
+            "import time; print('first', flush=True); time.sleep(0.08); print('last')",
+        ],
+        stage="stream-test",
+        heartbeat_seconds=0.02,
+    )
+    captured = capsys.readouterr().out
+    assert completed.args[1] == "-u"
+    assert "first" in captured and "last" in captured
+    assert "heartbeat" in captured
+    assert "return code: 0" in captured
 
 
 def test_training_clis_keep_explicit_colab_output_directories() -> None:

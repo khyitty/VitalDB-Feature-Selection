@@ -49,6 +49,7 @@ from src.rl_training.config import (
     PPOConfig,
     smoke_ppo_config,
 )
+from src.rl_training.callbacks import PPOProgressCallback
 from src.rl_training.environment_factory import make_cohort_environment
 from src.rl_training.evaluation import checkpoint_score, evaluate_scenarios
 from src.rl_training.feature_extractors import (
@@ -65,12 +66,110 @@ from src.rl_training.manifests import (
 from src.rl_training.experiment_protocol import run_experiment
 from src.rl_training.module5_audit import run_module5_audit
 from src.rl_training.policy_registry import policy_contract
-from src.rl_training.smoke import make_synthetic_smoke_env, run_condition_smoke
+from src.rl_training.run_status import (
+    begin_run_status,
+    complete_run_status,
+    fail_run_status,
+    update_running_config,
+)
+from src.rl_training.smoke import (
+    make_synthetic_smoke_env,
+    run_condition_smoke,
+    run_primary_state_smoke,
+)
 from src.rl_training.training import create_ppo, parameter_counts
-from scripts.run_ppo_experiment import validate_confirmation
+from scripts.run_ppo_experiment import main as run_ppo_main, validate_confirmation
 
 
 ROOT = Path(__file__).parents[1]
+
+
+def test_primary_state_options_cannot_fall_through_to_legacy_full_training() -> None:
+    with pytest.raises(ValueError, match="smoke-only"):
+        run_ppo_main(["--state-profile", "selected"])
+
+
+def test_run_status_running_complete_and_failed_are_unambiguous(tmp_path: Path) -> None:
+    run_dir = tmp_path / "complete"
+    begin_run_status(
+        run_dir,
+        resolved_config={
+            "seed": 42,
+            "state_profile": "original_reconstructed",
+            "ordered_feature_names": ["bis"],
+        },
+        repo_dir=ROOT,
+    )
+    assert json.loads((run_dir / "run_status.json").read_text())["status"] == "running"
+    update_running_config(run_dir, updates={"total_trainable_parameters": 123})
+    running = json.loads((run_dir / "run_status.json").read_text())
+    assert running["resolved_config"]["total_trainable_parameters"] == 123
+    checkpoint = run_dir / "model.zip"
+    evaluation = run_dir / "evaluation.csv"
+    checkpoint.write_bytes(b"model")
+    evaluation.write_text("metric\n1\n", encoding="utf-8")
+    complete_run_status(
+        run_dir, final_checkpoint=checkpoint, evaluation_artifacts=[evaluation]
+    )
+    assert json.loads((run_dir / "run_status.json").read_text())["status"] == "complete"
+
+    failed_dir = tmp_path / "failed"
+    begin_run_status(
+        failed_dir,
+        resolved_config={
+            "seed": 7,
+            "state_profile": "all_supported",
+            "ordered_feature_names": ["bis"],
+        },
+        repo_dir=ROOT,
+    )
+    try:
+        raise RuntimeError("deliberate failure")
+    except RuntimeError as exc:
+        fail_run_status(failed_dir, exc)
+    failed = json.loads((failed_dir / "run_status.json").read_text())
+    assert failed["status"] == "failed"
+    assert failed["exception_type"] == "RuntimeError"
+    assert "deliberate failure" in failed["traceback"]
+
+
+def test_clipping_callback_separates_lower_upper_and_boundary_actions() -> None:
+    callback = PPOProgressCallback(bounds=SYNTHETIC_NONCLINICAL_ACTION_BOUNDS)
+    callback.locals = {
+        "actions": np.asarray([[-2.0], [0.0], [3.0]]),
+        "clipped_actions": np.asarray([[-1.0], [0.0], [1.0]]),
+        "dones": np.asarray([False, False, True]),
+    }
+    assert callback._on_step() is True
+    diagnostics = callback.diagnostics()
+    assert diagnostics["normalized_clipping_count"] == 2
+    assert diagnostics["lower_bound_clipping_count"] == 1
+    assert diagnostics["upper_bound_clipping_count"] == 1
+    assert diagnostics["physical_action_bounds_mg_per_min"] == [0.0, 12.0]
+
+
+def test_primary_common_mlp_smoke_writes_reload_and_evaluation_artifacts(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "primary_smoke"
+    summary = run_primary_state_smoke(
+        state_profile="original_reconstructed",
+        seed=42,
+        total_timesteps=100,
+        output_dir=output,
+        repo_dir=ROOT,
+        device="cpu",
+    )
+    assert summary["training_timesteps"] == 100
+    assert summary["gymnasium_check_env_passed"] is True
+    assert summary["model_reload_passed"] is True
+    status = json.loads((output / "run_status.json").read_text())
+    assert status["status"] == "complete"
+    assert status["resolved_config"]["total_trainable_parameters"] == summary[
+        "parameter_counts"
+    ]["total_policy_trainable_parameters"]
+    assert (output / "final_model.zip").is_file()
+    assert (output / "deterministic_evaluation.csv").is_file()
 
 
 @pytest.fixture(scope="module")
@@ -124,11 +223,12 @@ def test_module5_reward_profiles_and_missing_alpha_contract() -> None:
 
 
 def test_yun_reconstructed_is_official_nonexact_alias() -> None:
-    alias = get_state_profile("yun_reconstructed")
-    original = get_state_profile("original_yun")
+    with pytest.warns(DeprecationWarning):
+        alias = get_state_profile("yun_reconstructed")
+    original = get_state_profile("original_reconstructed")
     assert alias.dynamic_feature_names == original.dynamic_feature_names
-    assert alias.name == "yun_reconstructed"
-    assert "not a complete reproduction" in alias.purpose
+    assert alias.name == "original_reconstructed"
+    assert "unpublished code" in alias.purpose
 
 
 def test_module5_independent_audit_outputs_and_alignment(tmp_path: Path) -> None:
@@ -256,6 +356,12 @@ def test_gru_and_attention_latent_dimensions_and_parameter_counts_are_fair() -> 
     assert attention_model.policy.features_extractor.features_dim == 64
     all_env.close()
     attention_env.close()
+
+
+@pytest.mark.parametrize("condition", POLICY_CONDITIONS)
+def test_existing_encoder_conditions_are_labeled_legacy_secondary(condition: str) -> None:
+    contract = policy_contract(condition)  # type: ignore[arg-type]
+    assert contract.main_comparison_role == "legacy_secondary_architecture"
 
 
 def test_actor_critic_shapes_and_deterministic_forward_reproducibility() -> None:
@@ -481,6 +587,9 @@ def test_ppo_notebooks_are_clean_json_with_compilable_code(notebook_name: str) -
         assert "torch_after.cuda.is_available()" in source
         assert "input(" in source
         assert "estimated_remaining_seconds" not in source
+        assert "RUN_FULL_TRAINING = False" in source
+        assert "--smoke-timesteps', '1000" in source
+        assert "stdout=subprocess.PIPE" not in source
 
 
 def test_rl_dependency_profile_pins_sb3_without_torch_or_pandas() -> None:

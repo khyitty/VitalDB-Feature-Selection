@@ -1,0 +1,393 @@
+"""Versioned RL-state manifests and simulator-eligibility metadata."""
+
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
+from datetime import datetime
+import json
+from pathlib import Path
+import re
+from typing import Any, Literal, Mapping
+
+
+FeatureTiming = Literal["dynamic", "static"]
+FeatureOrigin = Literal["raw", "derived"]
+
+
+@dataclass(frozen=True)
+class FeatureMetadata:
+    """Scientific metadata for one prediction or control-state feature."""
+
+    name: str
+    description: str
+    units: str
+    temporal_window_seconds: float | None
+    static_or_dynamic: FeatureTiming
+    raw_or_derived: FeatureOrigin
+    simulator_supported: bool
+    prediction_only: bool
+    deterministic_parents: tuple[str, ...]
+    normalization_rule: str
+    normalization_scale: float | None
+
+    def as_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def _dynamic(
+    name: str,
+    description: str,
+    units: str,
+    scale: float,
+    *,
+    temporal_window_seconds: float | None = None,
+    raw_or_derived: FeatureOrigin = "raw",
+    deterministic_parents: tuple[str, ...] = (),
+) -> FeatureMetadata:
+    return FeatureMetadata(
+        name=name,
+        description=description,
+        units=units,
+        temporal_window_seconds=temporal_window_seconds,
+        static_or_dynamic="dynamic",
+        raw_or_derived=raw_or_derived,
+        simulator_supported=True,
+        prediction_only=False,
+        deterministic_parents=deterministic_parents,
+        normalization_rule=f"divide by fixed physical scale {scale:g}",
+        normalization_scale=scale,
+    )
+
+
+def _static(name: str, description: str, units: str, scale: float) -> FeatureMetadata:
+    return FeatureMetadata(
+        name=name,
+        description=description,
+        units=units,
+        temporal_window_seconds=None,
+        static_or_dynamic="static",
+        raw_or_derived="raw",
+        simulator_supported=True,
+        prediction_only=False,
+        deterministic_parents=(),
+        normalization_rule=f"divide by fixed physical scale {scale:g}",
+        normalization_scale=scale,
+    )
+
+
+def _prediction_only(name: str, description: str, units: str) -> FeatureMetadata:
+    return FeatureMetadata(
+        name=name,
+        description=description,
+        units=units,
+        temporal_window_seconds=None,
+        static_or_dynamic="dynamic",
+        raw_or_derived="raw",
+        simulator_supported=False,
+        prediction_only=True,
+        deterministic_parents=(),
+        normalization_rule="training-split preprocessing in the prediction pipeline only",
+        normalization_scale=None,
+    )
+
+
+FEATURE_REGISTRY: dict[str, FeatureMetadata] = {
+    item.name: item
+    for item in (
+        _dynamic("bis", "Current causal simulator BIS observation.", "BIS unit", 100.0),
+        _dynamic(
+            "bis_slope",
+            "RL BIS change over one 10-second decision; this is not the prediction BIS-per-second slope.",
+            "BIS unit per 10-second decision",
+            20.0,
+            temporal_window_seconds=10.0,
+            raw_or_derived="derived",
+            deterministic_parents=("bis[t]", "bis[t-10s]"),
+        ),
+        _dynamic(
+            "bis_target_error",
+            "Current BIS minus the current target BIS.",
+            "BIS unit",
+            50.0,
+            raw_or_derived="derived",
+            deterministic_parents=("bis", "target_bis"),
+        ),
+        _dynamic(
+            "propofol_rate_mg_per_min", "Current propofol action rate.", "mg/min", 20.0
+        ),
+        _dynamic(
+            "propofol_recent_dose_mg",
+            "Causal propofol dose accumulated over at most the preceding 60 seconds.",
+            "mg",
+            20.0,
+            temporal_window_seconds=60.0,
+            raw_or_derived="derived",
+            deterministic_parents=("propofol_cumulative_dose_mg",),
+        ),
+        _dynamic(
+            "propofol_cumulative_dose_mg", "Simulator cumulative propofol dose.", "mg", 500.0
+        ),
+        _dynamic(
+            "propofol_cp_mg_per_l", "Propofol central plasma concentration.", "mg/L", 10.0
+        ),
+        _dynamic(
+            "propofol_ce_mg_per_l", "Propofol effect-site concentration.", "mg/L", 10.0
+        ),
+        _dynamic(
+            "remifentanil_rate_micrograms_per_min",
+            "Current exogenous remifentanil rate.",
+            "microgram/min",
+            20.0,
+        ),
+        _dynamic(
+            "remifentanil_recent_dose_micrograms",
+            "Causal remifentanil dose accumulated over at most the preceding 60 seconds.",
+            "microgram",
+            20.0,
+            temporal_window_seconds=60.0,
+            raw_or_derived="derived",
+            deterministic_parents=("remifentanil_cumulative_dose_micrograms",),
+        ),
+        _dynamic(
+            "remifentanil_cumulative_dose_micrograms",
+            "Simulator cumulative remifentanil dose.",
+            "microgram",
+            500.0,
+        ),
+        _dynamic(
+            "remifentanil_cp_micrograms_per_l",
+            "Remifentanil central plasma concentration.",
+            "microgram/L",
+            20.0,
+        ),
+        _dynamic(
+            "remifentanil_ce_micrograms_per_l",
+            "Remifentanil effect-site concentration.",
+            "microgram/L",
+            20.0,
+        ),
+        _static("age_years", "Patient age used by the reconstructed PK models.", "year", 100.0),
+        _static(
+            "sex_male", "Binary male indicator used by the reconstructed PK models.", "binary", 1.0
+        ),
+        _static("height_cm", "Patient height used by the reconstructed PK models.", "cm", 220.0),
+        _static("weight_kg", "Patient weight used by the reconstructed PK models.", "kg", 200.0),
+        _prediction_only("bis_sqi", "Recorded BIS signal quality index.", "percent"),
+        _prediction_only("hr", "Recorded heart rate.", "beats/min"),
+        _prediction_only("mbp", "Recorded mean blood pressure.", "mmHg"),
+        _prediction_only("sbp", "Recorded systolic blood pressure.", "mmHg"),
+        _prediction_only("dbp", "Recorded diastolic blood pressure.", "mmHg"),
+        _prediction_only("spo2", "Recorded peripheral oxygen saturation.", "percent"),
+        _prediction_only("etco2", "Recorded end-tidal carbon dioxide.", "mmHg"),
+        _prediction_only("hrv", "Derived heart-rate variability.", "unspecified"),
+        _prediction_only("respiratory_rate", "Recorded respiratory rate.", "breaths/min"),
+        _prediction_only("bis_error", "Prediction BIS minus fixed target 50.", "BIS unit"),
+        _prediction_only("ppf_rate", "Recorded propofol pump rate.", "source track unit"),
+        _prediction_only("ppf_volume", "Recorded pump propofol volume; not simulator dose.", "source track unit"),
+        _prediction_only("ppf_cp", "Recorded propofol plasma concentration track.", "mg/L"),
+        _prediction_only("ppf_ce", "Recorded propofol effect-site concentration track.", "mg/L"),
+        _prediction_only("rftn_rate", "Recorded remifentanil pump rate.", "source track unit"),
+        _prediction_only("rftn_volume", "Recorded pump remifentanil volume; not simulator dose.", "source track unit"),
+        _prediction_only("rftn_cp", "Recorded remifentanil plasma concentration track.", "microgram/L"),
+        _prediction_only("rftn_ce", "Recorded remifentanil effect-site concentration track.", "microgram/L"),
+    )
+}
+
+
+class StateManifestError(ValueError):
+    """Raised when a selected-state manifest violates its scientific contract."""
+
+
+class PendingStateSelectionError(StateManifestError):
+    """Raised when an unresolved selected state is requested for execution."""
+
+
+@dataclass(frozen=True)
+class SelectedStateManifest:
+    """Validated selected-state manifest with an exact feature order."""
+
+    schema_version: int
+    profile_name: str
+    feature_names: tuple[str, ...]
+    selection_method: str
+    selection_source_artifact: str
+    selection_split: str
+    seeds: tuple[int, ...]
+    patient_aggregation_rule: str
+    feature_aggregation_rule: str
+    threshold_or_top_k_rule: str
+    timestamp: str
+    git_commit: str
+    notes: str
+    source_path: str
+
+    @property
+    def pending(self) -> bool:
+        return self.selection_method == "pending_supervisor_decision"
+
+    def as_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        payload["feature_names"] = list(self.feature_names)
+        payload["seeds"] = list(self.seeds)
+        return payload
+
+
+REQUIRED_MANIFEST_FIELDS = {
+    "schema_version",
+    "profile_name",
+    "feature_names",
+    "selection_method",
+    "selection_source_artifact",
+    "selection_split",
+    "seeds",
+    "patient_aggregation_rule",
+    "feature_aggregation_rule",
+    "threshold_or_top_k_rule",
+    "timestamp",
+    "git_commit",
+    "notes",
+}
+
+
+def feature_registry_metadata() -> dict[str, dict[str, Any]]:
+    """Return the complete serializable prediction/control feature registry."""
+
+    return {name: metadata.as_dict() for name, metadata in FEATURE_REGISTRY.items()}
+
+
+def fixed_policy_scale(name: str) -> float:
+    """Resolve the declared non-fitted scale for one simulator-supported feature."""
+
+    try:
+        scale = FEATURE_REGISTRY[name].normalization_scale
+    except KeyError as exc:
+        raise ValueError(f"No feature metadata exists for {name!r}.") from exc
+    if scale is None:
+        raise ValueError(f"Feature {name!r} has no RL policy normalization scale.")
+    return float(scale)
+
+
+def _require_text(payload: Mapping[str, Any], field: str) -> str:
+    value = payload[field]
+    if not isinstance(value, str) or not value.strip():
+        raise StateManifestError(f"Manifest field {field!r} must be a non-empty string.")
+    return value.strip()
+
+
+def validate_selected_state_manifest(
+    payload: Mapping[str, Any],
+    *,
+    source_path: str = "<memory>",
+    require_resolved: bool = True,
+) -> SelectedStateManifest:
+    """Validate schema, provenance, feature order, and simulator eligibility."""
+
+    missing = sorted(REQUIRED_MANIFEST_FIELDS - set(payload))
+    unknown = sorted(set(payload) - REQUIRED_MANIFEST_FIELDS)
+    if missing or unknown:
+        raise StateManifestError(
+            f"Selected-state manifest fields are invalid; missing={missing}, unknown={unknown}."
+        )
+    if payload["schema_version"] != 1:
+        raise StateManifestError("Only selected-state schema_version 1 is supported.")
+    if payload["profile_name"] != "selected":
+        raise StateManifestError("Selected-state manifest profile_name must be 'selected'.")
+    raw_names = payload["feature_names"]
+    if not isinstance(raw_names, list) or not all(
+        isinstance(name, str) and name.strip() for name in raw_names
+    ):
+        raise StateManifestError("feature_names must be an ordered list of non-empty strings.")
+    feature_names = tuple(name.strip() for name in raw_names)
+    if len(feature_names) != len(set(feature_names)):
+        raise StateManifestError("feature_names must not contain duplicates.")
+
+    method = _require_text(payload, "selection_method")
+    pending = method == "pending_supervisor_decision"
+    if pending and require_resolved:
+        raise PendingStateSelectionError(
+            "The selected-state manifest is pending supervisor decision and cannot run."
+        )
+    if not pending and not feature_names:
+        raise StateManifestError("A resolved selected-state manifest requires at least one feature.")
+
+    for name in feature_names:
+        metadata = FEATURE_REGISTRY.get(name)
+        if metadata is None:
+            raise StateManifestError(
+                f"Unknown RL state feature {name!r}; it is absent from the feature registry."
+            )
+        if metadata.prediction_only or not metadata.simulator_supported:
+            raise StateManifestError(
+                f"Feature {name!r} is prediction-only or simulator-unsupported and cannot "
+                "enter a counterfactual RL observation."
+            )
+    static_seen = False
+    for name in feature_names:
+        timing = FEATURE_REGISTRY[name].static_or_dynamic
+        static_seen = static_seen or timing == "static"
+        if static_seen and timing == "dynamic":
+            raise StateManifestError(
+                "feature_names must list dynamic features before static features to preserve "
+                "the exact structured observation order."
+            )
+
+    raw_seeds = payload["seeds"]
+    if not isinstance(raw_seeds, list) or not all(
+        isinstance(seed, int) and not isinstance(seed, bool) for seed in raw_seeds
+    ):
+        raise StateManifestError("seeds must be an ordered list of integer seeds.")
+    if len(raw_seeds) != len(set(raw_seeds)):
+        raise StateManifestError("seeds must not contain duplicates.")
+
+    selection_split = _require_text(payload, "selection_split")
+    timestamp = _require_text(payload, "timestamp")
+    git_commit = _require_text(payload, "git_commit")
+    if not pending:
+        if selection_split not in {"train", "validation", "train_validation"}:
+            raise StateManifestError(
+                "selection_split must be train, validation, or train_validation; test is forbidden."
+            )
+        try:
+            datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise StateManifestError("timestamp must be a valid ISO-8601 timestamp.") from exc
+        if re.fullmatch(r"[0-9a-f]{40}", git_commit) is None:
+            raise StateManifestError("git_commit must be a canonical 40-character lowercase SHA.")
+
+    return SelectedStateManifest(
+        schema_version=1,
+        profile_name="selected",
+        feature_names=feature_names,
+        selection_method=method,
+        selection_source_artifact=_require_text(payload, "selection_source_artifact"),
+        selection_split=selection_split,
+        seeds=tuple(raw_seeds),
+        patient_aggregation_rule=_require_text(payload, "patient_aggregation_rule"),
+        feature_aggregation_rule=_require_text(payload, "feature_aggregation_rule"),
+        threshold_or_top_k_rule=_require_text(payload, "threshold_or_top_k_rule"),
+        timestamp=timestamp,
+        git_commit=git_commit,
+        notes=_require_text(payload, "notes"),
+        source_path=source_path,
+    )
+
+
+def load_selected_state_manifest(
+    path: Path,
+    *,
+    require_resolved: bool = True,
+) -> SelectedStateManifest:
+    """Load strict JSON without silently accepting missing provenance."""
+
+    resolved = path.expanduser().resolve()
+    if not resolved.is_file():
+        raise StateManifestError(f"Selected-state manifest does not exist: {resolved}")
+    try:
+        payload = json.loads(resolved.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise StateManifestError(f"Selected-state manifest is invalid JSON: {resolved}") from exc
+    if not isinstance(payload, dict):
+        raise StateManifestError("Selected-state manifest root must be a JSON object.")
+    return validate_selected_state_manifest(
+        payload, source_path=str(resolved), require_resolved=require_resolved
+    )

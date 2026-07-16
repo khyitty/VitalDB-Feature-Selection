@@ -15,7 +15,12 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.rl_training.cohort import load_vitaldb_virtual_cohort
-from src.rl_training.config import EXPERIMENT_SEEDS, POLICY_CONDITIONS, PPOConfig
+from src.rl_training.config import (
+    EXPERIMENT_SEEDS,
+    POLICY_CONDITIONS,
+    PRIMARY_STATE_PROFILES,
+    PPOConfig,
+)
 from src.rl_training.experiment_protocol import run_experiment
 from src.rl_training.manifests import (
     build_frozen_protocol,
@@ -23,6 +28,7 @@ from src.rl_training.manifests import (
     verify_protocol,
     write_policy_contract_artifacts,
 )
+from src.rl_training.smoke import run_primary_state_smoke
 
 
 def validate_confirmation(protocol: dict, confirmation: str | None) -> None:
@@ -71,6 +77,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--output-root", type=Path, default=ROOT / "outputs/ppo_control_comparison"
     )
     parser.add_argument("--initialize-only", action="store_true")
+    parser.add_argument("--smoke", action="store_true")
+    parser.add_argument("--smoke-timesteps", type=int, default=1_000)
+    parser.add_argument(
+        "--smoke-output-dir", type=Path, default=ROOT / "outputs/ppo_primary_smoke"
+    )
+    parser.add_argument(
+        "--state-profile",
+        choices=PRIMARY_STATE_PROFILES,
+        help="Canonical state profile for --smoke; primary full training is not frozen yet.",
+    )
+    parser.add_argument("--selected-state-manifest", type=Path)
     parser.add_argument("--confirmation")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--condition", choices=POLICY_CONDITIONS)
@@ -80,6 +97,28 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
+    if args.smoke:
+        if args.initialize_only or args.confirmation is not None or args.condition is not None:
+            raise ValueError("Smoke mode cannot be combined with frozen-inventory controls.")
+        seed = args.seed if args.seed is not None else 42
+        state_profile = args.state_profile or "original_reconstructed"
+        output_dir = args.smoke_output_dir / state_profile / f"seed_{seed}"
+        summary = run_primary_state_smoke(
+            state_profile=state_profile,
+            seed=seed,
+            total_timesteps=args.smoke_timesteps,
+            output_dir=output_dir,
+            repo_dir=ROOT,
+            device=args.device,
+            selected_manifest_path=args.selected_state_manifest,
+        )
+        print(json.dumps(summary, indent=2))
+        return
+    if args.state_profile is not None or args.selected_state_manifest is not None:
+        raise ValueError(
+            "Canonical state-profile options are smoke-only until the primary full "
+            "comparison manifest, budget, and seeds are approved and frozen."
+        )
     cohort = load_vitaldb_virtual_cohort(
         args.dataset_dir,
         demographics_csv=args.demographics_csv,

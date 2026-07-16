@@ -12,7 +12,7 @@ The page numbers below are PDF page numbers in the local source copy.
 | Item | Source location | Source-confirmed definition | Repository implementation | Status / ambiguity |
 |---|---|---|---|---|
 | BIS target and range | PDF p.4, after Eq. (32) | Typical target 50 and range 40--60 | Config defaults are 50 and 40--60 | Confirmed |
-| Dynamic state | PDF p.5, Eqs. (36)--(39) | BIS history, BIS slope/error, propofol history/recent cumulative dose, remifentanil history/recent cumulative dose | `original_yun` exposes the same seven ordered concepts | Confirmed concepts; preprocessing differs as noted below |
+| Dynamic state | PDF p.5, Eqs. (36)--(39) | BIS history, BIS slope/error, propofol history/recent cumulative dose, remifentanil history/recent cumulative dose | `original_reconstructed` exposes the same seven ordered concepts | Reconstructed concepts; unpublished source code and online LOWESS details are unavailable |
 | Demographics | PDF p.5, State Definition | Age, gender, weight, height are separate covariates | Static vector order is age, male indicator, height, weight | Confirmed concepts; sex encoding is repository metadata |
 | BIS smoothing | PDF p.5, State Definition | LOWESS-smoothed BIS is used | Online environment uses raw causal BIS; it never applies offline/noncausal LOWESS | LOWESS span, edge handling, and online causal procedure are not reported |
 | BIS slope | PDF p.5, Eq. (36) | Current smoothed BIS minus previous smoothed BIS | Current raw BIS minus previous raw BIS per 10-second decision | Formula confirmed; raw causal substitution is a repository choice |

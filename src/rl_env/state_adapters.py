@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
+import warnings
 
 import numpy as np
 
@@ -11,6 +13,12 @@ from src.pkpd.demographics import PatientDemographics
 
 from .config import StateProfileName
 from .history import HistoryBuffer
+from .state_manifests import (
+    FEATURE_REGISTRY,
+    SelectedStateManifest,
+    feature_registry_metadata,
+    load_selected_state_manifest,
+)
 
 
 STATIC_FEATURE_NAMES = ("age_years", "sex_male", "height_cm", "weight_kg")
@@ -53,29 +61,29 @@ SELECTED_CONTROL_AWARE_FEATURES = (
     "remifentanil_ce_micrograms_per_l",
 )
 
-FEATURE_UNITS = {
-    "bis": "BIS unit",
-    "bis_slope": "BIS unit per 10-second decision",
-    "bis_target_error": "BIS unit",
-    "propofol_rate_mg_per_min": "mg/min",
-    "propofol_recent_dose_mg": "mg per causal 60-second window",
-    "propofol_cumulative_dose_mg": "mg",
-    "propofol_cp_mg_per_l": "mg/L",
-    "propofol_ce_mg_per_l": "mg/L",
-    "remifentanil_rate_micrograms_per_min": "microgram/min",
-    "remifentanil_recent_dose_micrograms": "microgram per causal 60-second window",
-    "remifentanil_cumulative_dose_micrograms": "microgram",
-    "remifentanil_cp_micrograms_per_l": "microgram/L",
-    "remifentanil_ce_micrograms_per_l": "microgram/L",
-}
-
-
 @dataclass(frozen=True)
 class StateProfile:
-    name: StateProfileName
+    name: str
     dynamic_feature_names: tuple[str, ...]
     static_feature_names: tuple[str, ...] = STATIC_FEATURE_NAMES
     purpose: str = ""
+    selected_manifest: SelectedStateManifest | None = None
+
+    @property
+    def ordered_feature_names(self) -> tuple[str, ...]:
+        """Return the exact dynamic-then-static policy feature order."""
+
+        return (*self.dynamic_feature_names, *self.static_feature_names)
+
+    def observation_dimension(self, history_steps: int = 6) -> int:
+        """Return the flattened dimension including mask and target context."""
+
+        return (
+            history_steps * len(self.dynamic_feature_names)
+            + history_steps
+            + len(self.static_feature_names)
+            + 1
+        )
 
     def observation(
         self,
@@ -83,14 +91,14 @@ class StateProfile:
         demographics: PatientDemographics,
         target_bis: float,
     ) -> dict[str, np.ndarray]:
+        static_values = {
+            "age_years": demographics.age_years,
+            "sex_male": float(demographics.sex == "male"),
+            "height_cm": demographics.height_cm,
+            "weight_kg": demographics.weight_kg,
+        }
         static = np.asarray(
-            [
-                demographics.age_years,
-                float(demographics.sex == "male"),
-                demographics.height_cm,
-                demographics.weight_kg,
-            ],
-            dtype=np.float32,
+            [static_values[name] for name in self.static_feature_names], dtype=np.float32
         )
         observation = {
             "history": history.matrix(self.dynamic_feature_names),
@@ -106,22 +114,38 @@ class StateProfile:
         return {
             "name": self.name,
             "purpose": self.purpose,
+            "ordered_feature_names": list(self.ordered_feature_names),
             "dynamic_feature_names": list(self.dynamic_feature_names),
-            "dynamic_feature_units": [FEATURE_UNITS[name] for name in self.dynamic_feature_names],
+            "dynamic_feature_units": [
+                FEATURE_REGISTRY[name].units for name in self.dynamic_feature_names
+            ],
             "static_feature_names": list(self.static_feature_names),
-            "static_feature_units": list(STATIC_UNITS),
-            "normalization": "raw_physical_values; no fitted statistics in environment core",
+            "static_feature_units": [
+                FEATURE_REGISTRY[name].units for name in self.static_feature_names
+            ],
+            "observation_dimension_60s_10s": self.observation_dimension(),
+            "history_window_seconds": 60,
+            "decision_interval_seconds": 10,
+            "normalization": (
+                "raw physical values in the environment; fixed physical scaling in policy"
+            ),
             "bis_signal": "raw causal observed BIS; offline LOWESS is not reproduced",
+            "features": [
+                FEATURE_REGISTRY[name].as_dict() for name in self.ordered_feature_names
+            ],
+            "selected_manifest": (
+                self.selected_manifest.as_dict() if self.selected_manifest is not None else None
+            ),
         }
 
 
-STATE_PROFILES: dict[StateProfileName, StateProfile] = {
-    "original_yun": StateProfile(
-        "original_yun",
+STATE_PROFILES: dict[str, StateProfile] = {
+    "original_reconstructed": StateProfile(
+        "original_reconstructed",
         ORIGINAL_YUN_FEATURES,
         purpose=(
-            "Yun 2023 seven-concept baseline reconstructed with raw causal BIS because "
-            "the source does not specify an online causal LOWESS procedure or W."
+            "Reconstructed Yun-informed baseline using raw causal BIS because the paper "
+            "does not specify an online causal LOWESS procedure or unpublished code."
         ),
     ),
     "all_supported": StateProfile(
@@ -137,18 +161,20 @@ STATE_PROFILES: dict[StateProfileName, StateProfile] = {
             "attention is a future policy-encoder responsibility."
         ),
     ),
-    "selected_control_aware": StateProfile(
-        "selected_control_aware",
+    "legacy_control_aware": StateProfile(
+        "legacy_control_aware",
         SELECTED_CONTROL_AWARE_FEATURES,
         purpose=(
-            "Simulator-supported predictive intersection plus protected target, action, "
-            "remifentanil disturbance, and demographic variables."
+            "Legacy debugging subset based on a predictive intersection plus protected "
+            "control variables; this is not the proposed selected state."
         ),
     ),
 }
 
 STATE_PROFILE_ALIASES: dict[str, str] = {
-    "yun_reconstructed": "original_yun",
+    "original_yun": "original_reconstructed",
+    "yun_reconstructed": "original_reconstructed",
+    "selected_control_aware": "legacy_control_aware",
 }
 
 PREDICTIVE_STRICT_FEATURES = (
@@ -173,20 +199,43 @@ EXCLUDED_LATENT_STATES = (
 )
 
 
-def get_state_profile(name: StateProfileName) -> StateProfile:
-    if name == "yun_reconstructed":
-        original = STATE_PROFILES["original_yun"]
+def get_state_profile(
+    name: StateProfileName | str,
+    *,
+    selected_manifest_path: Path | None = None,
+) -> StateProfile:
+    """Resolve canonical profiles while warning for temporary legacy names."""
+
+    canonical = STATE_PROFILE_ALIASES.get(name, name)
+    if canonical != name:
+        warnings.warn(
+            f"State profile {name!r} is deprecated; use {canonical!r}.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+    if canonical == "selected":
+        if selected_manifest_path is None:
+            raise ValueError("The selected profile requires selected_state_manifest.")
+        manifest = load_selected_state_manifest(selected_manifest_path, require_resolved=True)
+        dynamic = tuple(
+            feature
+            for feature in manifest.feature_names
+            if FEATURE_REGISTRY[feature].static_or_dynamic == "dynamic"
+        )
+        static = tuple(
+            feature
+            for feature in manifest.feature_names
+            if FEATURE_REGISTRY[feature].static_or_dynamic == "static"
+        )
         return StateProfile(
-            name="yun_reconstructed",
-            dynamic_feature_names=original.dynamic_feature_names,
-            static_feature_names=original.static_feature_names,
-            purpose=(
-                "Official experiment name for the raw-causal reconstructed Yun baseline; "
-                "this is not a complete reproduction of Yun's unspecified LOWESS pipeline."
-            ),
+            name="selected",
+            dynamic_feature_names=dynamic,
+            static_feature_names=static,
+            purpose="Versioned manifest-selected simulator-supported state.",
+            selected_manifest=manifest,
         )
     try:
-        return STATE_PROFILES[name]
+        return STATE_PROFILES[canonical]
     except KeyError as exc:
         raise ValueError(f"Unknown state profile {name!r}.") from exc
 
@@ -194,9 +243,19 @@ def get_state_profile(name: StateProfileName) -> StateProfile:
 def state_profile_registry() -> dict[str, Any]:
     return {
         "profiles": {name: profile.metadata() for name, profile in STATE_PROFILES.items()},
+        "selected_profile": {
+            "name": "selected",
+            "status": "requires_resolved_versioned_manifest",
+            "hard_coded_features": False,
+        },
         "aliases": dict(STATE_PROFILE_ALIASES),
-        "official_experiment_baseline_name": "yun_reconstructed",
-        "yun_reconstructed_is_exact_reproduction": False,
+        "canonical_primary_profiles": [
+            "original_reconstructed",
+            "all_supported",
+            "selected",
+        ],
+        "official_experiment_baseline_name": "original_reconstructed",
+        "original_reconstructed_is_exact_reproduction": False,
         "all_attention_raw_information_equal": (
             STATE_PROFILES["all_supported"].dynamic_feature_names
             == STATE_PROFILES["attention_ready"].dynamic_feature_names
@@ -213,4 +272,5 @@ def state_profile_registry() -> dict[str, Any]:
         ],
         "unsupported_vital_signs": list(UNSUPPORTED_VITAL_SIGNS),
         "excluded_internal_latent_states": list(EXCLUDED_LATENT_STATES),
+        "feature_registry": feature_registry_metadata(),
     }

@@ -19,14 +19,22 @@ from .environment_factory import make_cohort_environment
 from .evaluation import checkpoint_score, evaluate_scenarios
 from .io import atomic_write_dataframe, atomic_write_json
 from .manifests import canonical_json, verify_protocol
+from .policy_registry import policy_contract
+from .run_status import (
+    begin_run_status,
+    complete_run_status,
+    fail_run_status,
+    update_running_config,
+)
 from .training import create_ppo, parameter_counts
+from src.rl_env.state_adapters import get_state_profile
 
 
 def _write_json(path: Path, payload: Any) -> None:
     atomic_write_json(path, payload)
 
 
-def run_experiment(
+def _run_experiment_impl(
     *,
     protocol: dict[str, Any],
     condition: PolicyCondition,
@@ -94,6 +102,15 @@ def run_experiment(
         resumed = False
     counts = parameter_counts(model)
     _write_json(run_dir / "parameter_counts.json", counts)
+    if (run_dir / "run_status.json").is_file():
+        update_running_config(
+            run_dir,
+            updates={
+                "total_trainable_parameters": counts[
+                    "total_policy_trainable_parameters"
+                ]
+            },
+        )
     validation_scenarios = scenarios_for_split(cohort, "validation", base_seed=100_000)
     progress_path = run_dir / "training_progress.csv"
     evaluation_progress_path = run_dir / "evaluation_progress.csv"
@@ -125,7 +142,7 @@ def run_experiment(
         if model.num_timesteps < ppo.total_timesteps:
             remaining = ppo.total_timesteps - model.num_timesteps
             chunk = min(ppo.evaluation_frequency_timesteps, remaining)
-            callback = PPOProgressCallback()
+            callback = PPOProgressCallback(bounds=env.bounds)
             chunk_started = time.perf_counter()
             model.learn(
                 total_timesteps=chunk,
@@ -147,6 +164,15 @@ def run_experiment(
             }
             progress = pd.concat((progress, pd.DataFrame([row])), ignore_index=True)
             atomic_write_dataframe(progress_path, progress)
+            atomic_write_json(
+                run_dir / "action_clipping_diagnostics.json",
+                {
+                    "latest_training_chunk": callback.diagnostics(),
+                    "episode_clipping": callback.episode_rows,
+                    "training_windows": callback.rollout_rows,
+                    "action_bound_changed_after_audit": False,
+                },
+            )
         if model.num_timesteps in evaluated_timesteps:
             continue
         evaluation_path = run_dir / f"validation_{model.num_timesteps}.csv"
@@ -203,3 +229,73 @@ def run_experiment(
     _write_json(run_dir / "run_manifest.json", {**config_payload, **counts})
     _write_json(completion_path, completion)
     return completion
+
+
+def run_experiment(
+    *,
+    protocol: dict[str, Any],
+    condition: PolicyCondition,
+    seed: int,
+    cohort: CohortBundle,
+    output_root: Path,
+    device: str,
+) -> dict[str, Any]:
+    """Run one frozen-v1 item with failure-safe status and legacy completion support."""
+
+    run_dir = output_root / condition / f"seed_{seed}"
+    completion_path = run_dir / "completion.json"
+    if completion_path.is_file() and not (run_dir / "run_status.json").is_file():
+        # Historical completed artifacts remain readable without retroactive mutation.
+        return _run_experiment_impl(
+            protocol=protocol,
+            condition=condition,
+            seed=seed,
+            cohort=cohort,
+            output_root=output_root,
+            device=device,
+        )
+
+    ppo = PPOConfig(**protocol["ppo"])
+    contract = policy_contract(condition, ppo.latent_dim)
+    profile = get_state_profile(contract.environment_profile)
+    resolved_config = {
+        "workflow": "legacy_frozen_ppo_v1",
+        "condition": condition,
+        "seed": seed,
+        "device": device,
+        "state_profile": profile.name,
+        "ordered_feature_names": list(profile.ordered_feature_names),
+        "observation_dimension": profile.observation_dimension(),
+        "policy_architecture": "SB3 MultiInputPolicy",
+        "feature_extractor": contract.extractor_kind,
+        "ppo": ppo.as_dict(),
+        "protocol_hash": protocol.get("protocol_hash"),
+    }
+    begin_run_status(run_dir, resolved_config=resolved_config, repo_dir=Path(__file__).parents[2])
+    try:
+        result = _run_experiment_impl(
+            protocol=protocol,
+            condition=condition,
+            seed=seed,
+            cohort=cohort,
+            output_root=output_root,
+            device=device,
+        )
+        best = json.loads((run_dir / "best_checkpoint.json").read_text(encoding="utf-8"))
+        counts = json.loads((run_dir / "parameter_counts.json").read_text(encoding="utf-8"))
+        complete_run_status(
+            run_dir,
+            final_checkpoint=run_dir / "best_model.zip",
+            evaluation_artifacts=[
+                run_dir / "best_checkpoint.json",
+                run_dir / str(best["validation_file"]),
+                run_dir / "training_progress.csv",
+                run_dir / "evaluation_progress.csv",
+                run_dir / "action_clipping_diagnostics.json",
+            ],
+            extra={"total_trainable_parameters": counts["total_policy_trainable_parameters"]},
+        )
+        return result
+    except BaseException as exc:
+        fail_run_status(run_dir, exc, last_checkpoint=run_dir / "last_model.zip")
+        raise

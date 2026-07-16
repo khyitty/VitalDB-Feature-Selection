@@ -29,7 +29,7 @@ from .config import (
 )
 from .environment import PropofolControlEnv
 from .reward import reward_profile_registry
-from .state_adapters import STATE_PROFILES, state_profile_registry
+from .state_adapters import STATE_PROFILES, get_state_profile, state_profile_registry
 
 
 LOGGER = logging.getLogger(__name__)
@@ -252,7 +252,7 @@ def compare_state_profiles(
         trajectories[profile], _, _ = rollout(
             config, state_profile=profile, actions=actions
         )
-    reference = trajectories["original_yun"]
+    reference = trajectories["original_reconstructed"]
     comparison_columns = [
         "bis",
         "noiseless_bis",
@@ -377,15 +377,15 @@ def run_validation(
 ) -> dict[str, Any]:
     """Run all synthetic checks and persist a reproducible validation package."""
 
-    if config.state_profile not in STATE_PROFILES:
-        raise ValueError(f"Unknown state profile: {config.state_profile!r}.")
+    profile = get_state_profile(config.state_profile)  # type: ignore[arg-type]
+    if profile.name == "selected":
+        raise ValueError("ValidationConfig requires an explicit selected-state manifest.")
     if config.patient_profile not in SYNTHETIC_PATIENTS:
         raise ValueError(f"Unknown synthetic patient: {config.patient_profile!r}.")
     output_dir.mkdir(parents=True, exist_ok=True)
     checker_passed = _checker_passes(config)
     trajectory, metrics, final_observation = rollout(config)
     equivalence, equivalence_summary = compare_state_profiles(config)
-    profile = STATE_PROFILES[config.state_profile]
     environment_config = _environment_config(config, config.state_profile)
     manifest = {
         "created_at_utc": datetime.now(timezone.utc).isoformat(),

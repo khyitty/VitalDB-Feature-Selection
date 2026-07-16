@@ -4,10 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import math
+from pathlib import Path
 from typing import Literal
 
 
 StateProfileName = Literal[
+    "original_reconstructed",
+    "selected",
+    "legacy_control_aware",
     "original_yun",
     "yun_reconstructed",
     "all_supported",
@@ -105,7 +109,8 @@ class EnvironmentConfig:
     integrator: Literal["exact", "solve_ivp"] = "exact"
     action_bounds: ActionBounds = field(default_factory=lambda: YUN_2023_CONVERTED_ACTION_BOUNDS)
     action_mode: ActionMode = "strict"
-    state_profile: StateProfileName = "attention_ready"
+    state_profile: StateProfileName = "original_reconstructed"
+    selected_state_manifest: Path | None = None
     reward_profile: str = "transparent_tracking_v1"
     paper_reward_alpha: float | None = None
     action_magnitude_coefficient: float = 0.0

@@ -52,7 +52,10 @@ class PropofolControlEnv(gym.Env[dict[str, np.ndarray], np.ndarray]):
         self._default_target_schedule = target_schedule or ConstantTargetSchedule(
             self.config.target_bis
         )
-        self._state_profile: StateProfile = get_state_profile(self.config.state_profile)
+        self._state_profile: StateProfile = get_state_profile(
+            self.config.state_profile,
+            selected_manifest_path=self.config.selected_state_manifest,
+        )
         bounds = self.config.action_bounds
         self.action_space = spaces.Box(
             low=np.asarray([bounds.low_mg_per_min], dtype=np.float32),

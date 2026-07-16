@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import copy
+from collections import deque
+from datetime import datetime, timezone
 import importlib.metadata
 import json
 import os
 import pickle
 import platform
 import re
+import queue
 import shutil
 import subprocess
 import sys
+import threading
 from pathlib import Path
 from time import perf_counter
 from typing import Any, Mapping, Sequence
@@ -87,6 +91,85 @@ FROZEN_TEST_REQUIRED_IMPORTS = (
     "matplotlib",
     "sklearn",
 )
+
+
+def run_streaming_command(
+    command: Sequence[str],
+    *,
+    stage: str,
+    cwd: Path | None = None,
+    heartbeat_seconds: float = 30.0,
+    tail_lines: int = 2_000,
+) -> subprocess.CompletedProcess[str]:
+    """Run a subprocess with immediate output and idle heartbeats.
+
+    Python child processes are forced into unbuffered mode. Only a bounded output
+    tail is retained so long training jobs do not exhaust notebook memory.
+    """
+
+    if heartbeat_seconds <= 0.0 or tail_lines <= 0:
+        raise ValueError("heartbeat_seconds and tail_lines must be positive.")
+    resolved = [str(item) for item in command]
+    if not resolved:
+        raise ValueError("A streaming command must not be empty.")
+    try:
+        is_python = Path(resolved[0]).resolve() == Path(sys.executable).resolve()
+    except OSError:
+        is_python = False
+    if is_python and (len(resolved) == 1 or resolved[1] != "-u"):
+        resolved.insert(1, "-u")
+    started = datetime.now(timezone.utc).isoformat()
+    print(f"[{stage}] start {started}", flush=True)
+    print(f"[{stage}] $ {' '.join(resolved)}", flush=True)
+    environment = os.environ.copy()
+    environment["PYTHONUNBUFFERED"] = "1"
+    process = subprocess.Popen(
+        resolved,
+        cwd=str(cwd) if cwd is not None else None,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+        env=environment,
+    )
+    if process.stdout is None:
+        raise RuntimeError("Streaming subprocess did not expose stdout.")
+    messages: queue.Queue[str | None] = queue.Queue()
+
+    def read_output() -> None:
+        try:
+            for line in process.stdout:
+                messages.put(line)
+        finally:
+            messages.put(None)
+
+    reader = threading.Thread(target=read_output, daemon=True)
+    reader.start()
+    retained: deque[str] = deque(maxlen=tail_lines)
+    while True:
+        try:
+            line = messages.get(timeout=heartbeat_seconds)
+        except queue.Empty:
+            print(
+                f"[{stage}] heartbeat {datetime.now(timezone.utc).isoformat()} "
+                f"pid={process.pid}",
+                flush=True,
+            )
+            continue
+        if line is None:
+            break
+        retained.append(line)
+        print(line, end="", flush=True)
+    return_code = process.wait()
+    reader.join(timeout=1.0)
+    output = "".join(retained)
+    print(f"[{stage}] return code: {return_code}", flush=True)
+    completed = subprocess.CompletedProcess(resolved, return_code, output, None)
+    if return_code != 0:
+        raise RuntimeError(
+            f"{stage} failed with return code {return_code}. Retained output tail:\n{output}"
+        )
+    return completed
 
 
 def dump_json(payload: Mapping[str, Any], path: Path) -> None:

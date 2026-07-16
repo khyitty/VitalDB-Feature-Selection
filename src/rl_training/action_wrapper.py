@@ -20,6 +20,8 @@ class ActionTransform:
     physical_action_mg_per_min: float
     applied_dose_mg_per_10s: float
     normalized_clipping_applied: bool
+    lower_bound_clipping: bool = False
+    upper_bound_clipping: bool = False
 
 
 def policy_to_physical(action: Any, bounds: ActionBounds) -> ActionTransform:
@@ -85,7 +87,13 @@ class NormalizedPropofolActionWrapper(gym.ActionWrapper):
                 "policy_raw_action": self.last_transform.policy_action,
                 "policy_wrapper_received_action": self.last_transform.policy_action,
                 "sb3_unbounded_raw_action_available_via_callback": True,
+                "normalized_action": self.last_transform.bounded_policy_action,
+                "action_before_wrapper_clipping": self.last_transform.policy_action,
+                "action_after_wrapper_clipping": self.last_transform.bounded_policy_action,
                 "policy_bounded_action": self.last_transform.bounded_policy_action,
+                "scaled_environment_action_mg_per_min": (
+                    self.last_transform.physical_action_mg_per_min
+                ),
                 "physical_action_mg_per_min": (
                     self.last_transform.physical_action_mg_per_min
                 ),
@@ -93,6 +101,8 @@ class NormalizedPropofolActionWrapper(gym.ActionWrapper):
                 "normalized_clipping_applied": (
                     self.last_transform.normalized_clipping_applied
                 ),
+                "lower_bound_clipping": self.last_transform.lower_bound_clipping,
+                "upper_bound_clipping": self.last_transform.upper_bound_clipping,
             }
         )
         return observation, reward, terminated, truncated, info

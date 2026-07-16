@@ -1,5 +1,12 @@
 # Fair PPO Attention-State Comparison
 
+> **Legacy architecture protocol.** This frozen v1 protocol changes the feature
+> extractor between `all_supported` and `attention_supported`; it therefore cannot
+> support the primary scientific claim about state selection. It is retained for
+> backward compatibility and optional secondary architecture analysis. The primary
+> state-only protocol uses one common SB3 MLP/FlattenExtractor for
+> `original_reconstructed`, `all_supported`, and manifest-loaded `selected`.
+
 Module 6 compares four observation/encoder conditions around the same Module 5
 transition, reward, action bounds, patient split, target, and exogenous
 remifentanil scenario.

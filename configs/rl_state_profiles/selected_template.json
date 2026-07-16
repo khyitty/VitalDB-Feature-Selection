@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "profile_name": "selected",
+  "feature_names": [],
+  "selection_method": "pending_supervisor_decision",
+  "selection_source_artifact": "pending",
+  "selection_split": "pending",
+  "seeds": [],
+  "patient_aggregation_rule": "pending",
+  "feature_aggregation_rule": "pending",
+  "threshold_or_top_k_rule": "pending",
+  "timestamp": "pending",
+  "git_commit": "pending",
+  "notes": "Template only. This is not a selected state and cannot start training."
+}

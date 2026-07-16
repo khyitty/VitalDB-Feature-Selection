@@ -157,8 +157,11 @@ def test_fixed_episode_duration_is_exact_and_truncated() -> None:
         env.step(np.asarray([0.0], dtype=np.float32))
 
 
-def test_original_yun_ordered_schema() -> None:
-    assert STATE_PROFILES["original_yun"].dynamic_feature_names == ORIGINAL_YUN_FEATURES
+def test_original_reconstructed_ordered_schema() -> None:
+    assert (
+        STATE_PROFILES["original_reconstructed"].dynamic_feature_names
+        == ORIGINAL_YUN_FEATURES
+    )
     assert len(ORIGINAL_YUN_FEATURES) == 7
 
 
@@ -173,9 +176,9 @@ def test_attention_ready_history_and_static_shapes() -> None:
     assert observation["static"].shape == (4,)
 
 
-def test_selected_control_aware_mapping_is_explicit() -> None:
+def test_legacy_control_aware_mapping_is_explicit() -> None:
     registry = state_profile_registry()
-    assert STATE_PROFILES["selected_control_aware"].dynamic_feature_names == (
+    assert STATE_PROFILES["legacy_control_aware"].dynamic_feature_names == (
         SELECTED_CONTROL_AWARE_FEATURES
     )
     assert registry["predictive_intersection"] == ["bis", "bis_slope", "ppf_rate", "ppf_cp"]

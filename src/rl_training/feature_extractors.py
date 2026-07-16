@@ -10,6 +10,8 @@ from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
+from src.rl_env.state_manifests import fixed_policy_scale
+
 
 @dataclass(frozen=True)
 class AttentionOutput:
@@ -20,25 +22,9 @@ class AttentionOutput:
 
 
 def _feature_scales(feature_names: tuple[str, ...]) -> torch.Tensor:
-    scales = {
-        "bis": 100.0,
-        "bis_slope": 20.0,
-        "bis_target_error": 50.0,
-        "propofol_rate_mg_per_min": 20.0,
-        "propofol_recent_dose_mg": 20.0,
-        "propofol_cumulative_dose_mg": 500.0,
-        "propofol_cp_mg_per_l": 10.0,
-        "propofol_ce_mg_per_l": 10.0,
-        "remifentanil_rate_micrograms_per_min": 20.0,
-        "remifentanil_recent_dose_micrograms": 20.0,
-        "remifentanil_cumulative_dose_micrograms": 500.0,
-        "remifentanil_cp_micrograms_per_l": 20.0,
-        "remifentanil_ce_micrograms_per_l": 20.0,
-    }
-    missing = [name for name in feature_names if name not in scales]
-    if missing:
-        raise ValueError(f"No fixed physical scaling metadata for features: {missing}")
-    return torch.tensor([scales[name] for name in feature_names], dtype=torch.float32)
+    return torch.tensor(
+        [fixed_policy_scale(name) for name in feature_names], dtype=torch.float32
+    )
 
 
 class _StructuredExtractor(BaseFeaturesExtractor):
