@@ -37,6 +37,29 @@ Run the synthetic test suite:
 python -m pytest -q
 ```
 
+## PK-PD patient simulator
+
+Module 4 provides a research-only Schnider propofol, Minto remifentanil, and Yun
+combined-BIS simulator. It uses an exact zero-order-hold matrix exponential at a
+default 1-second internal interval while preserving the planned 10-second control
+hold. Remifentanil is an exogenous schedule. The module does not generate vital signs,
+implement Gymnasium/PPO, train RL agents, or apply actions to actual VitalDB patients.
+
+```bash
+python scripts/run_pkpd_simulator_validation.py \
+  --patient middle_male \
+  --duration-seconds 1800 \
+  --internal-dt-seconds 1 \
+  --output-dir outputs/pkpd_simulator_validation
+```
+
+Equation provenance and unit decisions are documented in
+`docs/pkpd_equation_traceability.md` and `docs/pkpd_assumptions_and_units.md`.
+The standalone CPU notebook is `notebooks/colab_pkpd_simulator_validation.ipynb`.
+
+This simulator is a research reconstruction of published PK–PD equations. It is not a
+medical device and must not be used for clinical dosing.
+
 Pilot arrays are saved to `data/modeling/pilot/{train,val,test}.npz`; matching window
 metadata, split case lists, feature/preprocessing metadata, and the dataset report are
 saved in the same directory.

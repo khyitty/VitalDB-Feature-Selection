@@ -1,0 +1,103 @@
+{
+  "registry_version": "1.0",
+  "blocked_missing_source_equation": false,
+  "clinical_use_prohibited": true,
+  "entries": [
+    {
+      "id": "james_lbm",
+      "variables": ["age_years", "sex", "height_cm", "weight_kg", "lean_body_mass_kg"],
+      "source": "Yun et al. 2023; Schnider 1998; Minto 1997",
+      "location": "Yun 2023 equations (4)-(5), PDF page 3; Yun 2024 equation (21), PDF page 10",
+      "source_unit": "kg and cm",
+      "code_unit": "kg and cm",
+      "conversion": "none",
+      "implementation": "src/pkpd/demographics.py:calculate_lean_body_mass_kg",
+      "status": "verified_with_published_typography_correction",
+      "ambiguity": "Yun PDFs omit the square; code uses the source-model James squared ratio."
+    },
+    {
+      "id": "schnider_h1_h17",
+      "variables": ["h1", "h2", "h3", "h4", "h5", "h6", "h7", "h8", "h9", "h10", "h11", "h12", "h13", "h14", "h15", "h16", "h17"],
+      "source": "Yun et al. 2023 Table A.4; Schnider et al. 1998",
+      "location": "Yun 2023 PDF page 9; equations (6)-(17), PDF pages 3-4",
+      "source_unit": "L, L/min, 1/min and covariate-specific coefficients",
+      "code_unit": "L, L/min, 1/min",
+      "conversion": "none",
+      "implementation": "src/pkpd/parameters.py:schnider_propofol_parameters",
+      "status": "verified",
+      "ambiguity": null
+    },
+    {
+      "id": "minto_f1_f18",
+      "variables": ["f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12", "f13", "f14", "f15", "f16", "f17", "f18"],
+      "source": "Yun et al. 2023 Table A.4; Minto et al. 1997",
+      "location": "Yun 2023 PDF page 9; equations (18)-(29), PDF page 4",
+      "source_unit": "L, L/min, 1/min and covariate-specific coefficients",
+      "code_unit": "L, L/min, 1/min",
+      "conversion": "none",
+      "implementation": "src/pkpd/parameters.py:minto_remifentanil_parameters",
+      "status": "verified_with_symbol_correction",
+      "ambiguity": "Yun remifentanil Cl1 prints h18; Minto mapping and table identify f18=55. Yun f12=0.030 is retained although common original-model transcriptions use 0.0301."
+    },
+    {
+      "id": "three_compartment_ode",
+      "variables": ["x1", "x2", "x3", "k10", "k12", "k13", "k21", "k31", "u"],
+      "source": "Yun et al. 2023",
+      "location": "Section 3, equations (1)-(3), PDF page 3",
+      "source_unit": "amount and amount/min",
+      "code_unit": "mg for propofol, microgram for remifentanil, per minute",
+      "conversion": "public seconds are divided by 60",
+      "implementation": "src/pkpd/compartment.py:system_matrix",
+      "status": "verified",
+      "ambiguity": null
+    },
+    {
+      "id": "plasma_effect_site",
+      "variables": ["cp", "ce", "ke0"],
+      "source": "Yun et al. 2023",
+      "location": "Section 3, equations (30)-(31), PDF page 4",
+      "source_unit": "drug-specific concentration and 1/min",
+      "code_unit": "mg/L propofol; microgram/L remifentanil",
+      "conversion": "Cp=x1/V1; dCe/dt=ke0*(Cp-Ce)",
+      "implementation": "src/pkpd/compartment.py:system_matrix",
+      "status": "verified",
+      "ambiguity": null
+    },
+    {
+      "id": "combined_bis",
+      "variables": ["propofol_ce_mg_per_l", "remifentanil_ce_micrograms_per_l", "raw_bis"],
+      "source": "Yun et al. 2023; Yun et al. 2024",
+      "location": "Yun 2023 equation (32), PDF page 4; Yun 2024 equation (6), PDF page 4",
+      "source_unit": "4.47 mg/L propofol; 19.3 microgram/L remifentanil",
+      "code_unit": "same",
+      "conversion": "mg/L equals microgram/mL; microgram/L equals ng/mL",
+      "implementation": "src/pkpd/bis_response.py:combined_bis_response",
+      "status": "verified",
+      "ambiguity": null
+    },
+    {
+      "id": "stochastic_bis_noise",
+      "variables": ["epsilon"],
+      "source": "Yun et al. 2024",
+      "location": "Text following equation (6), PDF page 4 (printed page 2513)",
+      "source_unit": "BIS units",
+      "code_unit": "BIS units",
+      "conversion": "N(10, 0.4) interpreted with 0.4 as variance",
+      "implementation": "src/pkpd/bis_response.py:sample_bis_noise",
+      "status": "source_ambiguous_experimental",
+      "ambiguity": "Normal parameter convention and separate 10% effect-site drop update are not fully specified."
+    },
+    {
+      "id": "infusion_units",
+      "variables": ["propofol_rate_mg_per_min", "remifentanil_rate_micrograms_per_min"],
+      "source": "Yun et al. 2023 ODE text; Minto concentration scale",
+      "location": "Yun 2023 PDF page 3; BIS equation (32), PDF page 4",
+      "source_unit": "mg/min stated generically; remifentanil convention microgram/min",
+      "code_unit": "mg/min propofol; microgram/min remifentanil",
+      "conversion": "rates multiply minutes; API durations seconds/60",
+      "implementation": "src/pkpd/units.py",
+      "status": "verified_with_drug_specific_resolution",
+      "ambiguity": "Yun uses a generic mg label for both drugs despite different concentration scales."
+    }
+  ]
+}

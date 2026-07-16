@@ -6,4 +6,5 @@ tqdm
 pytest
 torch
 scikit-learn
+scipy
 xgboost
