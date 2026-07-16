@@ -9,6 +9,7 @@ from typing import Literal
 
 StateProfileName = Literal[
     "original_yun",
+    "yun_reconstructed",
     "all_supported",
     "attention_ready",
     "selected_control_aware",
@@ -50,6 +51,16 @@ YUN_2023_CONVERTED_ACTION_BOUNDS = ActionBounds(
     ),
 )
 
+YUN_REPORTED_ACTION_BOUNDS = ActionBounds(
+    low_mg_per_min=0.0,
+    high_mg_per_min=166.2,
+    profile_name="yun_reported_action_range",
+    provenance=(
+        "Official experiment alias for Yun 2023 PDF p.5 action range: "
+        "27.7 mg per 10 seconds converted exactly to 166.2 mg/min."
+    ),
+)
+
 SYNTHETIC_NONCLINICAL_ACTION_BOUNDS = ActionBounds(
     low_mg_per_min=0.0,
     high_mg_per_min=12.0,
@@ -66,6 +77,7 @@ def action_bounds_from_profile(profile_name: str) -> ActionBounds:
 
     profiles = {
         YUN_2023_CONVERTED_ACTION_BOUNDS.profile_name: YUN_2023_CONVERTED_ACTION_BOUNDS,
+        YUN_REPORTED_ACTION_BOUNDS.profile_name: YUN_REPORTED_ACTION_BOUNDS,
         SYNTHETIC_NONCLINICAL_ACTION_BOUNDS.profile_name: (
             SYNTHETIC_NONCLINICAL_ACTION_BOUNDS
         ),

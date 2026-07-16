@@ -6,6 +6,7 @@ from .config import (
     RESEARCH_ONLY_WARNING,
     SYNTHETIC_NONCLINICAL_ACTION_BOUNDS,
     YUN_2023_CONVERTED_ACTION_BOUNDS,
+    YUN_REPORTED_ACTION_BOUNDS,
     action_bounds_from_profile,
 )
 from .environment import PropofolControlEnv
@@ -26,6 +27,7 @@ __all__ = [
     "SYNTHETIC_NONCLINICAL_ACTION_BOUNDS",
     "TargetSegment",
     "YUN_2023_CONVERTED_ACTION_BOUNDS",
+    "YUN_REPORTED_ACTION_BOUNDS",
     "action_bounds_from_profile",
     "state_profile_registry",
 ]

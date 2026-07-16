@@ -334,6 +334,11 @@ class PropofolControlEnv(gym.Env[dict[str, np.ndarray], np.ndarray]):
             "reward_components": dict(reward_components),
             "action_requested_mg_per_min": requested_action,
             "action_applied_mg_per_min": applied_action,
+            "applied_dose_mg_per_10s": (
+                applied_action * self.config.action_interval_seconds / 60.0
+            ),
+            "action_rate_unit": "mg/min",
+            "applied_dose_unit": "mg per 10-second environment step",
             "action_clipped": action_clipped,
             "bis_in_safe_range": (
                 self.config.safe_bis_low

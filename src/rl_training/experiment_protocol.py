@@ -1,0 +1,204 @@
+"""Resumable validation-selected full PPO experiment execution."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import shutil
+import time
+from typing import Any
+
+import numpy as np
+import pandas as pd
+from stable_baselines3 import PPO
+
+from .callbacks import PPOProgressCallback
+from .cohort import CohortBundle, scenarios_for_split
+from .config import PPOConfig, PolicyCondition
+from .environment_factory import make_cohort_environment
+from .evaluation import checkpoint_score, evaluate_scenarios
+from .manifests import canonical_json, verify_protocol
+from .training import create_ppo, parameter_counts
+
+
+def _write_json(path: Path, payload: Any) -> None:
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def run_experiment(
+    *,
+    protocol: dict[str, Any],
+    condition: PolicyCondition,
+    seed: int,
+    cohort: CohortBundle,
+    output_root: Path,
+    device: str,
+) -> dict[str, Any]:
+    """Run/resume one inventory item; never reads the test cohort."""
+
+    verify_protocol(protocol)
+    identities = {(item["condition"], int(item["seed"])) for item in protocol["inventory"]}
+    if (condition, seed) not in identities:
+        raise ValueError(f"Run {(condition, seed)} is absent from the frozen inventory.")
+    if protocol["cohort"]["fingerprint"] != cohort.fingerprint:
+        raise ValueError("Cohort fingerprint differs from the frozen PPO protocol.")
+    ppo = PPOConfig(**protocol["ppo"])
+    run_dir = output_root / condition / f"seed_{seed}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    completion_path = run_dir / "completion.json"
+    if completion_path.exists():
+        completion = json.loads(completion_path.read_text(encoding="utf-8"))
+        if completion.get("protocol_hash") != protocol["protocol_hash"]:
+            raise ValueError("Completed run protocol hash does not match the frozen protocol.")
+        return {**completion, "skipped_complete": True}
+    config_path = run_dir / "config.json"
+    config_payload = {
+        "condition": condition,
+        "seed": seed,
+        "protocol_hash": protocol["protocol_hash"],
+        "device": device,
+        "test_cohort_accessed": False,
+    }
+    if config_path.exists():
+        observed = json.loads(config_path.read_text(encoding="utf-8"))
+        if canonical_json(observed) != canonical_json(config_payload):
+            raise ValueError("Partial run config is incompatible; refusing unsafe resume.")
+    else:
+        _write_json(config_path, config_payload)
+        _write_json(run_dir / "protocol_snapshot.json", protocol)
+        _write_json(
+            run_dir / "normalization_state.json",
+            {
+                "kind": "fixed_unit_aware_scaling",
+                "learned_statistics": False,
+                "test_data_used": False,
+            },
+        )
+
+    env = make_cohort_environment(
+        condition=condition,
+        ppo=ppo,
+        cohort=cohort,
+        split="train",
+        seed=seed,
+    )
+    last_path = run_dir / "last_model.zip"
+    if last_path.exists():
+        model = PPO.load(last_path, env=env, device=device)
+        resumed = True
+    else:
+        model = create_ppo(
+            env, condition=condition, config=ppo, seed=seed, device=device, verbose=1
+        )
+        resumed = False
+    counts = parameter_counts(model)
+    _write_json(run_dir / "parameter_counts.json", counts)
+    validation_scenarios = scenarios_for_split(cohort, "validation", base_seed=100_000)
+    progress_path = run_dir / "training_progress.csv"
+    evaluation_progress_path = run_dir / "evaluation_progress.csv"
+    progress = pd.read_csv(progress_path) if progress_path.exists() else pd.DataFrame()
+    evaluation_progress = (
+        pd.read_csv(evaluation_progress_path)
+        if evaluation_progress_path.exists()
+        else pd.DataFrame()
+    )
+    best_score = (np.inf, np.inf, np.inf)
+    if not evaluation_progress.empty:
+        best_row = evaluation_progress.sort_values(
+            ["validation_bis_mae", "negative_time_in_range", "action_change_sum"]
+        ).iloc[0]
+        best_score = (
+            float(best_row["validation_bis_mae"]),
+            float(best_row["negative_time_in_range"]),
+            float(best_row["action_change_sum"]),
+        )
+    evaluated_timesteps = (
+        set(evaluation_progress["timesteps"].astype(int))
+        if not evaluation_progress.empty
+        else set()
+    )
+    while (
+        model.num_timesteps < ppo.total_timesteps
+        or model.num_timesteps not in evaluated_timesteps
+    ):
+        if model.num_timesteps < ppo.total_timesteps:
+            remaining = ppo.total_timesteps - model.num_timesteps
+            chunk = min(ppo.evaluation_frequency_timesteps, remaining)
+            callback = PPOProgressCallback()
+            chunk_started = time.perf_counter()
+            model.learn(
+                total_timesteps=chunk,
+                reset_num_timesteps=(model.num_timesteps == 0),
+                callback=callback,
+                progress_bar=False,
+            )
+            chunk_elapsed = time.perf_counter() - chunk_started
+            model.save(run_dir / "last_model")
+            logger = model.logger.name_to_value
+            row = {
+                "timesteps": model.num_timesteps,
+                "train_loss": float(logger.get("train/loss", np.nan)),
+                "policy_gradient_loss": float(logger.get("train/policy_gradient_loss", np.nan)),
+                "value_loss": float(logger.get("train/value_loss", np.nan)),
+                "chunk_elapsed_seconds": chunk_elapsed,
+                "training_steps_per_second": chunk / chunk_elapsed,
+                **callback.diagnostics(),
+            }
+            progress = pd.concat((progress, pd.DataFrame([row])), ignore_index=True)
+            progress.to_csv(progress_path, index=False)
+        if model.num_timesteps in evaluated_timesteps:
+            continue
+        evaluation_path = run_dir / f"validation_{model.num_timesteps}.csv"
+        attention_path = (
+            run_dir / "attention_snapshots" / f"validation_{model.num_timesteps}.npz"
+            if condition == "attention_supported"
+            else None
+        )
+        validation = evaluate_scenarios(
+            model,
+            condition=condition,
+            config=ppo,
+            cohort=cohort,
+            scenarios=validation_scenarios,
+            training_seed=seed,
+            checkpoint_path=last_path,
+            attention_output_path=attention_path,
+        )
+        validation.to_csv(evaluation_path, index=False)
+        score = checkpoint_score(validation)
+        evaluation_row = {
+            "timesteps": model.num_timesteps,
+            "validation_bis_mae": score[0],
+            "negative_time_in_range": score[1],
+            "action_change_sum": score[2],
+            "validation_file": evaluation_path.name,
+            "selected_as_best": score < best_score,
+        }
+        if score < best_score:
+            best_score = score
+            shutil.copy2(last_path, run_dir / "best_model.zip")
+            _write_json(
+                run_dir / "best_checkpoint.json",
+                {**evaluation_row, "selection_rule": protocol["checkpoint_selection"]},
+            )
+        evaluation_progress = pd.concat(
+            (evaluation_progress, pd.DataFrame([evaluation_row])), ignore_index=True
+        )
+        evaluation_progress.to_csv(evaluation_progress_path, index=False)
+        evaluated_timesteps.add(model.num_timesteps)
+
+    env.close()
+    completion = {
+        "status": "complete",
+        "condition": condition,
+        "seed": seed,
+        "timesteps": model.num_timesteps,
+        "protocol_hash": protocol["protocol_hash"],
+        "resumed_from_partial": resumed,
+        "best_validation_score": list(best_score),
+        "test_cohort_accessed": False,
+        "replay_buffer_state": "not applicable: PPO is on-policy",
+    }
+    _write_json(run_dir / "run_manifest.json", {**config_payload, **counts})
+    _write_json(completion_path, completion)
+    return completion

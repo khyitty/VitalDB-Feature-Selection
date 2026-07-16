@@ -1,0 +1,2 @@
+# RL-only profile. Keep the existing Colab torch/CUDA and pandas installations.
+stable-baselines3==2.9.0

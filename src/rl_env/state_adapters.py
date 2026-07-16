@@ -147,6 +147,10 @@ STATE_PROFILES: dict[StateProfileName, StateProfile] = {
     ),
 }
 
+STATE_PROFILE_ALIASES: dict[str, str] = {
+    "yun_reconstructed": "original_yun",
+}
+
 PREDICTIVE_STRICT_FEATURES = (
     "bis",
     "bis_sqi",
@@ -170,6 +174,17 @@ EXCLUDED_LATENT_STATES = (
 
 
 def get_state_profile(name: StateProfileName) -> StateProfile:
+    if name == "yun_reconstructed":
+        original = STATE_PROFILES["original_yun"]
+        return StateProfile(
+            name="yun_reconstructed",
+            dynamic_feature_names=original.dynamic_feature_names,
+            static_feature_names=original.static_feature_names,
+            purpose=(
+                "Official experiment name for the raw-causal reconstructed Yun baseline; "
+                "this is not a complete reproduction of Yun's unspecified LOWESS pipeline."
+            ),
+        )
     try:
         return STATE_PROFILES[name]
     except KeyError as exc:
@@ -179,6 +194,9 @@ def get_state_profile(name: StateProfileName) -> StateProfile:
 def state_profile_registry() -> dict[str, Any]:
     return {
         "profiles": {name: profile.metadata() for name, profile in STATE_PROFILES.items()},
+        "aliases": dict(STATE_PROFILE_ALIASES),
+        "official_experiment_baseline_name": "yun_reconstructed",
+        "yun_reconstructed_is_exact_reproduction": False,
         "all_attention_raw_information_equal": (
             STATE_PROFILES["all_supported"].dynamic_feature_names
             == STATE_PROFILES["attention_ready"].dynamic_feature_names
