@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 import time
 from typing import Any
@@ -22,6 +21,7 @@ from .action_wrapper import NormalizedPropofolActionWrapper
 from .callbacks import PPOProgressCallback
 from .config import POLICY_CONDITIONS, PolicyCondition, environment_profile_for_condition, smoke_ppo_config
 from .feature_extractors import FactorizedAttentionControlExtractor
+from .io import atomic_write_dataframe, atomic_write_json
 from .training import create_ppo, parameter_counts
 
 
@@ -114,7 +114,7 @@ def run_condition_smoke(
             temporal_rows.append(extractor.last_attention.temporal_attention.cpu().numpy()[0])
             masks.append(np.asarray(info["history_mask"], dtype=bool))
         done = terminated or truncated
-    pd.DataFrame(action_rows).to_csv(output_dir / "deterministic_evaluation.csv", index=False)
+    atomic_write_dataframe(output_dir / "deterministic_evaluation.csv", pd.DataFrame(action_rows))
     if condition == "attention_supported":
         extractor = restored.policy.features_extractor
         assert isinstance(extractor, FactorizedAttentionControlExtractor)
@@ -154,9 +154,7 @@ def run_condition_smoke(
         "full_training_performed": False,
         "test_cohort_accessed": False,
     }
-    (output_dir / "smoke_summary.json").write_text(
-        json.dumps(summary, indent=2), encoding="utf-8"
-    )
+    atomic_write_json(output_dir / "smoke_summary.json", summary)
     return summary
 
 
@@ -177,7 +175,7 @@ def run_all_smokes(
         )
         for condition in POLICY_CONDITIONS
     ]
-    pd.DataFrame(
+    summary_frame = pd.DataFrame(
         [
             {
                 "condition": row["condition"],
@@ -188,5 +186,6 @@ def run_all_smokes(
             }
             for row in summaries
         ]
-    ).to_csv(output_root / "smoke_summary.csv", index=False)
+    )
+    atomic_write_dataframe(output_root / "smoke_summary.csv", summary_frame)
     return summaries

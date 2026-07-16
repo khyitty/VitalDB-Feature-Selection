@@ -38,6 +38,21 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="Initialize or resume frozen CUDA PPO runs; held-out test remains sealed."
     )
     parser.add_argument("--dataset-dir", type=Path, default=ROOT / "data/modeling/full")
+    parser.add_argument(
+        "--demographics-csv",
+        type=Path,
+        help="Explicit case-level demographics source; never inferred from the repository clone.",
+    )
+    parser.add_argument(
+        "--project-data-root",
+        type=Path,
+        help="Project data root used to resolve metadata-recorded source filenames.",
+    )
+    parser.add_argument(
+        "--missing-demographics-policy",
+        choices=("error", "train_impute"),
+        default="error",
+    )
     parser.add_argument("--protocol-dir", type=Path, default=ROOT / "outputs/ppo_protocol")
     parser.add_argument(
         "--output-root", type=Path, default=ROOT / "outputs/ppo_control_comparison"
@@ -52,19 +67,42 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
-    cohort = load_vitaldb_virtual_cohort(args.dataset_dir, ROOT)
+    cohort = load_vitaldb_virtual_cohort(
+        args.dataset_dir,
+        demographics_csv=args.demographics_csv,
+        project_data_root=args.project_data_root,
+        missing_policy=args.missing_demographics_policy,
+    )
     requested = build_frozen_protocol(repo_dir=ROOT, cohort=cohort, ppo=PPOConfig())
-    protocol = freeze_protocol(requested, args.protocol_dir)
+    protocol = freeze_protocol(
+        requested, args.protocol_dir, run_output_root=args.output_root
+    )
     verify_protocol(protocol)
     write_policy_contract_artifacts(
         protocol=protocol, cohort=cohort, output_dir=args.protocol_dir
     )
     print(json.dumps({
+        "stage": "initialize-only preflight" if args.initialize_only else "full-training preflight",
+        "repository_head": requested["implementation_commit_at_creation"],
+        "dataset_path": str(args.dataset_dir.resolve()),
+        "dataset_entries": sorted(path.name for path in args.dataset_dir.iterdir()),
         "protocol_hash": protocol["protocol_hash"],
         "inventory_count": protocol["inventory_count"],
         "confirmation_text": protocol["confirmation_text"],
         "cohort_fingerprint": cohort.fingerprint,
-        "test_cohort_accessed": False,
+        "demographics_source": cohort.demographics_source,
+        "demographics_source_path": cohort.access_manifest["selected_demographics_path"],
+        "demographics_source_kind": cohort.demographics_source_kind,
+        "demographics_source_columns": list(cohort.demographics_source_columns),
+        "required_demographic_columns": ["caseid", "age", "sex", "height", "weight"],
+        "missing_demographic_counts": cohort.missing_demographics,
+        "cohort_split_counts": cohort.access_manifest["split_counts"],
+        "cohort_split_overlaps": cohort.access_manifest["split_overlaps"],
+        "test_split_membership_loaded": True,
+        "test_demographics_loaded": True,
+        "test_trajectory_accessed": False,
+        "test_outcomes_evaluated": False,
+        "test_policy_rollout_performed": False,
     }, indent=2))
     if args.initialize_only:
         return

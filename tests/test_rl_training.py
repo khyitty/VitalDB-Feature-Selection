@@ -76,7 +76,9 @@ ROOT = Path(__file__).parents[1]
 @pytest.fixture(scope="module")
 def cohort_bundle():
     with pytest.warns(UserWarning):
-        return load_vitaldb_virtual_cohort(ROOT / "data/modeling/full", ROOT)
+        return load_vitaldb_virtual_cohort(
+            ROOT / "data/modeling/full", project_data_root=ROOT / "data"
+        )
 
 
 def _model(condition: str, seed: int = 1):

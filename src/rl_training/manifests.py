@@ -18,6 +18,7 @@ from src.rl_env.state_adapters import state_profile_registry
 
 from .cohort import CohortBundle, scenarios_for_split
 from .config import EXPERIMENT_SEEDS, POLICY_CONDITIONS, PPOConfig
+from .io import atomic_write_dataframe, atomic_write_json, atomic_write_text
 from .policy_registry import encoder_contract_registry
 
 
@@ -101,6 +102,9 @@ def build_frozen_protocol(
             "population_validation_claim": False,
             "fingerprint": cohort.fingerprint,
             "demographics_source": cohort.demographics_source,
+            "demographics_source_kind": cohort.demographics_source_kind,
+            "demographics_source_columns": list(cohort.demographics_source_columns),
+            "demographics_source_fingerprint": cohort.demographics_source_fingerprint,
             "split_source": cohort.split_source,
             "case_counts": {
                 "train": len(cohort.cohort.manifest.train_patient_ids),
@@ -113,10 +117,14 @@ def build_frozen_protocol(
                 "test": list(cohort.cohort.manifest.test_patient_ids),
             },
             "patient_overlap": False,
-            "missing_demographics_imputed": False,
+            "missing_demographics": cohort.missing_demographics,
+            "missing_demographics_imputed": bool(cohort.imputation_statistics),
+            "imputation_statistics": cohort.imputation_statistics,
+            "test_access": cohort.access_manifest,
             "demographic_domain_policy": (
                 "All reused VitalDB demographics must pass simulator hard bounds; "
-                "outside-source-study-envelope values emit explicit warnings and are not imputed."
+                "outside-source-study-envelope values emit explicit warnings. Missing values "
+                "are rejected by default; optional imputation is fitted on train demographics only."
             ),
         },
         "conditions": list(POLICY_CONDITIONS),
@@ -155,23 +163,54 @@ def build_frozen_protocol(
     return payload
 
 
-def freeze_protocol(payload: dict[str, Any], output_dir: Path) -> dict[str, Any]:
-    """Write once or require exact hash equality; never mutate an existing protocol."""
+_SCIENTIFIC_PROTOCOL_KEYS = (
+    "protocol_version",
+    "required_repository_ancestor",
+    "simulator_commit",
+    "module5_environment_commit",
+    "reward",
+    "action",
+    "environment",
+    "conditions",
+    "main_contrast",
+    "secondary_contrasts",
+    "strict_consensus_is_attention_selected",
+    "predictive_attention_checkpoint_transfer",
+    "state_profile_registry",
+    "encoder_contracts",
+    "ppo",
+    "ppo_hyperparameter_source",
+    "seeds",
+    "inventory",
+    "inventory_count",
+    "confirmation_text",
+    "checkpoint_selection",
+    "validation_scenario_ids",
+    "early_stopping",
+    "final_evaluation",
+)
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    json_path = output_dir / "frozen_ppo_protocol.json"
-    if json_path.exists():
-        observed = json.loads(json_path.read_text(encoding="utf-8"))
-        if protocol_hash(observed) != observed.get("protocol_hash"):
-            raise ValueError("Existing frozen PPO protocol has an invalid internal hash.")
-        if observed["protocol_hash"] != payload["protocol_hash"]:
-            raise ValueError(
-                "Existing frozen PPO protocol differs from the requested protocol; "
-                "create a new protocol version and experiment ID."
-            )
-        return observed
-    json_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    markdown = f"""# Frozen PPO Control Comparison Protocol
+
+def _scientific_protocol_signature(payload: dict[str, Any]) -> str:
+    cohort = payload.get("cohort", {})
+    selected = {key: payload.get(key) for key in _SCIENTIFIC_PROTOCOL_KEYS}
+    selected["cohort"] = {
+        "fingerprint": cohort.get("fingerprint"),
+        "case_counts": cohort.get("case_counts"),
+        "split_patient_ids": cohort.get("split_patient_ids"),
+        "clinical_trajectory_replay": cohort.get("clinical_trajectory_replay"),
+    }
+    return canonical_json(selected)
+
+
+def _training_output_files(output_root: Path | None) -> list[Path]:
+    if output_root is None or not output_root.exists():
+        return []
+    return sorted(path for path in output_root.rglob("*") if path.is_file())
+
+
+def _protocol_markdown(payload: dict[str, Any]) -> str:
+    return f"""# Frozen PPO Control Comparison Protocol
 
 - Version: `{payload['protocol_version']}`
 - Hash: `{payload['protocol_hash']}`
@@ -189,8 +228,47 @@ pipeline. `selected_control_aware` is not an attention-selected subset.
 
 {payload['research_warning']}
 """
-    (output_dir / "frozen_ppo_protocol.md").write_text(markdown, encoding="utf-8")
-    return payload
+
+
+def freeze_protocol(
+    payload: dict[str, Any],
+    output_dir: Path,
+    *,
+    run_output_root: Path | None = None,
+) -> dict[str, Any]:
+    """Atomically create, safely reuse, or reject a frozen PPO protocol."""
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    json_path = output_dir / "frozen_ppo_protocol.json"
+    run_files = _training_output_files(run_output_root)
+    if json_path.exists():
+        try:
+            observed = json.loads(json_path.read_text(encoding="utf-8"))
+            verify_protocol(observed)
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+            if run_files:
+                raise ValueError(
+                    "Existing frozen PPO protocol is incomplete or invalid while run output "
+                    f"exists; refusing repair. First run files: {[str(path) for path in run_files[:5]]}."
+                ) from exc
+            atomic_write_json(json_path, payload)
+            observed = payload
+        if _scientific_protocol_signature(observed) != _scientific_protocol_signature(payload):
+            raise ValueError(
+                "Existing frozen PPO protocol or cohort differs from the requested scientific "
+                "protocol; it was not deleted or modified. Create a new protocol version and "
+                "experiment ID."
+            )
+    else:
+        if run_files:
+            raise ValueError(
+                "Training output exists without frozen_ppo_protocol.json; refusing to create a "
+                f"new protocol. First run files: {[str(path) for path in run_files[:5]]}."
+            )
+        atomic_write_json(json_path, payload)
+        observed = payload
+    atomic_write_text(output_dir / "frozen_ppo_protocol.md", _protocol_markdown(observed))
+    return observed
 
 
 def verify_protocol(payload: dict[str, Any]) -> None:
@@ -232,9 +310,9 @@ def write_policy_contract_artifacts(
         rows.append({"condition": condition, **parameter_counts(model)})
         env.close()
     counts = pd.DataFrame(rows)
-    counts.to_csv(output_dir / "policy_parameter_counts.csv", index=False)
-    pd.DataFrame(cohort.patient_records).to_csv(
-        output_dir / "virtual_patient_manifest.csv", index=False
+    atomic_write_dataframe(output_dir / "policy_parameter_counts.csv", counts)
+    atomic_write_dataframe(
+        output_dir / "virtual_patient_manifest.csv", pd.DataFrame(cohort.patient_records)
     )
     all_count = int(
         counts.loc[
@@ -276,9 +354,10 @@ def write_policy_contract_artifacts(
         )
     ):
         raise ValueError(f"All-vs-attention fairness contract failed: {equivalence}")
-    (output_dir / "encoder_contracts.json").write_text(
-        json.dumps(protocol["encoder_contracts"], indent=2), encoding="utf-8"
+    atomic_write_json(
+        output_dir / "encoder_contracts.json", protocol["encoder_contracts"]
     )
-    (output_dir / "all_attention_information_equivalence.json").write_text(
-        json.dumps(equivalence, indent=2), encoding="utf-8"
+    atomic_write_json(
+        output_dir / "all_attention_information_equivalence.json", equivalence
     )
+    atomic_write_json(output_dir / "cohort_access_manifest.json", cohort.access_manifest)

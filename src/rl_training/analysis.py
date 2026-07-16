@@ -12,6 +12,7 @@ from scipy.stats import spearmanr
 
 from .attention_logging import verify_attention_checkpoint
 from .config import EXPERIMENT_SEEDS, POLICY_CONDITIONS
+from .io import atomic_write_dataframe, atomic_write_json
 
 
 PRIMARY_METRICS = (
@@ -248,7 +249,7 @@ def run_validation_analysis(
     analysis_dir.mkdir(parents=True, exist_ok=True)
     inventory = audit_run_inventory(output_root)
     frame = load_selected_validation(output_root, require_complete=True)
-    frame.to_csv(analysis_dir / "selected_validation_scenarios.csv", index=False)
+    atomic_write_dataframe(analysis_dir / "selected_validation_scenarios.csv", frame)
     contrasts = [
         ("attention_supported", "all_supported", "primary"),
         ("attention_supported", "yun_reconstructed", "secondary"),
@@ -264,11 +265,12 @@ def run_validation_analysis(
                 paired, replicates=replicates, seed=bootstrap_seed
             )
             summaries.append({"contrast": f"{left} - {right}", "role": role, "metric": metric, **summary})
-    pd.concat(paired_frames, ignore_index=True).to_csv(
-        analysis_dir / "paired_scenario_contrasts.csv", index=False
+    atomic_write_dataframe(
+        analysis_dir / "paired_scenario_contrasts.csv",
+        pd.concat(paired_frames, ignore_index=True),
     )
-    pd.DataFrame(summaries).to_csv(
-        analysis_dir / "hierarchical_bootstrap_summary.csv", index=False
+    atomic_write_dataframe(
+        analysis_dir / "hierarchical_bootstrap_summary.csv", pd.DataFrame(summaries)
     )
     attention_paths = []
     for best_path in output_root.glob("attention_supported/seed_*/best_checkpoint.json"):
@@ -279,13 +281,13 @@ def run_validation_analysis(
         verify_attention_checkpoint(artifact, best_path.parent / "best_model.zip")
         attention_paths.append(artifact)
     attention, attention_summary = analyze_attention_artifacts(attention_paths)
-    attention.to_csv(analysis_dir / "attention_feature_summary.csv", index=False)
+    atomic_write_dataframe(analysis_dir / "attention_feature_summary.csv", attention)
     temporal, heatmap, regions = attention_detail_tables(attention_paths)
-    temporal.to_csv(analysis_dir / "attention_time_lag_summary.csv", index=False)
-    heatmap.to_csv(analysis_dir / "attention_feature_time_heatmap.csv", index=False)
-    regions.to_csv(analysis_dir / "attention_bis_region_summary.csv", index=False)
-    (analysis_dir / "attention_stability.json").write_text(
-        json.dumps(attention_summary, indent=2), encoding="utf-8"
+    atomic_write_dataframe(analysis_dir / "attention_time_lag_summary.csv", temporal)
+    atomic_write_dataframe(analysis_dir / "attention_feature_time_heatmap.csv", heatmap)
+    atomic_write_dataframe(analysis_dir / "attention_bis_region_summary.csv", regions)
+    atomic_write_json(
+        analysis_dir / "attention_stability.json", attention_summary
     )
     result = {
         "inventory": inventory,
@@ -298,7 +300,7 @@ def run_validation_analysis(
         "winner_selected_from_p_value": False,
         "attention_is_causal_effect": False,
     }
-    (analysis_dir / "validation_analysis_summary.json").write_text(
-        json.dumps(result, indent=2), encoding="utf-8"
+    atomic_write_json(
+        analysis_dir / "validation_analysis_summary.json", result
     )
     return result

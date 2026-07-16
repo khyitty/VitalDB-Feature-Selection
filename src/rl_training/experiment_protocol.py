@@ -17,12 +17,13 @@ from .cohort import CohortBundle, scenarios_for_split
 from .config import PPOConfig, PolicyCondition
 from .environment_factory import make_cohort_environment
 from .evaluation import checkpoint_score, evaluate_scenarios
+from .io import atomic_write_dataframe, atomic_write_json
 from .manifests import canonical_json, verify_protocol
 from .training import create_ppo, parameter_counts
 
 
 def _write_json(path: Path, payload: Any) -> None:
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    atomic_write_json(path, payload)
 
 
 def run_experiment(
@@ -145,7 +146,7 @@ def run_experiment(
                 **callback.diagnostics(),
             }
             progress = pd.concat((progress, pd.DataFrame([row])), ignore_index=True)
-            progress.to_csv(progress_path, index=False)
+            atomic_write_dataframe(progress_path, progress)
         if model.num_timesteps in evaluated_timesteps:
             continue
         evaluation_path = run_dir / f"validation_{model.num_timesteps}.csv"
@@ -164,7 +165,7 @@ def run_experiment(
             checkpoint_path=last_path,
             attention_output_path=attention_path,
         )
-        validation.to_csv(evaluation_path, index=False)
+        atomic_write_dataframe(evaluation_path, validation)
         score = checkpoint_score(validation)
         evaluation_row = {
             "timesteps": model.num_timesteps,
@@ -184,7 +185,7 @@ def run_experiment(
         evaluation_progress = pd.concat(
             (evaluation_progress, pd.DataFrame([evaluation_row])), ignore_index=True
         )
-        evaluation_progress.to_csv(evaluation_progress_path, index=False)
+        atomic_write_dataframe(evaluation_progress_path, evaluation_progress)
         evaluated_timesteps.add(model.num_timesteps)
 
     env.close()

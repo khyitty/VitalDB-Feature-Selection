@@ -31,6 +31,17 @@ prespecified time-in-range and action-change tie-breakers. Training return and
 the test cohort cannot select a checkpoint. The held-out RL test remains sealed
 throughout this module.
 
+The virtual cohort resolves demographics from case-level fields embedded in the
+modeling metadata, an explicit `--demographics-csv`, or a metadata-named source
+under `--project-data-root`, in that order. It never assumes that an untracked
+CSV exists inside the repository clone. In Colab, the modeling dataset is
+`/content/drive/MyDrive/VitalDB-Feature-Selection/data/modeling/full` and source
+discovery is rooted at `/content/drive/MyDrive/VitalDB-Feature-Selection/data`.
+Test case IDs, split membership, and demographics may parameterize the frozen
+virtual-patient manifest. Test trajectories, outcomes, policy rollouts, tuning,
+and checkpoint selection remain prohibited and are recorded separately in
+`cohort_access_manifest.json`.
+
 Full training inventory: four conditions by seeds 7, 21, 42, 84, and 123, for 20
 CUDA runs. The exact confirmation is generated from the frozen inventory and is
 currently `RUN_20_PPO_CUDA_RUNS`.

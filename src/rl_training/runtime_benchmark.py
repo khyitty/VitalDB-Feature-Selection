@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import importlib.util
 from pathlib import Path
 import time
@@ -12,6 +11,7 @@ import torch
 
 from .callbacks import PPOProgressCallback
 from .config import smoke_ppo_config
+from .io import atomic_write_json
 from .smoke import make_synthetic_smoke_env
 from .training import create_ppo
 
@@ -88,8 +88,6 @@ def run_runtime_benchmark(
         "full_training_performed": False,
         "action_diagnostics": callback.diagnostics(),
     }
-    (output_dir / "runtime_benchmark.json").write_text(
-        json.dumps(summary, indent=2), encoding="utf-8"
-    )
+    atomic_write_json(output_dir / "runtime_benchmark.json", summary)
     env.close()
     return summary

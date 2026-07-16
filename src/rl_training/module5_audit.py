@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-import json
 from pathlib import Path
 import subprocess
 from typing import Any
@@ -14,6 +13,8 @@ import pandas as pd
 from src.rl_env import EnvironmentConfig, PropofolControlEnv, YUN_REPORTED_ACTION_BOUNDS
 from src.rl_env.reward import RewardCalculator, reward_profile_registry
 from src.rl_env.state_adapters import STATE_PROFILES, get_state_profile, state_profile_registry
+
+from .io import atomic_write_dataframe, atomic_write_json, atomic_write_text
 
 
 def _git_head(repo_dir: Path) -> str:
@@ -58,7 +59,7 @@ def run_module5_audit(output_dir: Path, repo_dir: Path) -> dict[str, Any]:
         )
         probe.close()
     action_audit = pd.DataFrame(action_rows)
-    action_audit.to_csv(output_dir / "action_unit_audit.csv", index=False)
+    atomic_write_dataframe(output_dir / "action_unit_audit.csv", action_audit)
 
     history_rows = [
         {
@@ -90,7 +91,7 @@ def run_module5_audit(output_dir: Path, repo_dir: Path) -> dict[str, Any]:
             }
         )
     history_audit = pd.DataFrame(history_rows)
-    history_audit.to_csv(output_dir / "history_alignment_audit.csv", index=False)
+    atomic_write_dataframe(output_dir / "history_alignment_audit.csv", history_audit)
     env.close()
 
     state_rows = []
@@ -114,7 +115,7 @@ def run_module5_audit(output_dir: Path, repo_dir: Path) -> dict[str, Any]:
                 ),
             }
         )
-    pd.DataFrame(state_rows).to_csv(output_dir / "state_profile_audit.csv", index=False)
+    atomic_write_dataframe(output_dir / "state_profile_audit.csv", pd.DataFrame(state_rows))
 
     reward_audit = {
         "default_profile": "transparent_tracking_v1",
@@ -132,9 +133,7 @@ def run_module5_audit(output_dir: Path, repo_dir: Path) -> dict[str, Any]:
         pass
     else:
         reward_audit["missing_alpha_rejected"] = False
-    (output_dir / "reward_contract_audit.json").write_text(
-        json.dumps(reward_audit, indent=2), encoding="utf-8"
-    )
+    atomic_write_json(output_dir / "reward_contract_audit.json", reward_audit)
 
     passed = bool(
         np.isclose(action_audit.iloc[-1]["simulator_cumulative_dose_mg"], 27.7)
@@ -158,9 +157,7 @@ def run_module5_audit(output_dir: Path, repo_dir: Path) -> dict[str, Any]:
         "exact_yun_reproduction": False,
         "state_registry": state_profile_registry(),
     }
-    (output_dir / "module5_audit_manifest.json").write_text(
-        json.dumps(manifest, indent=2), encoding="utf-8"
-    )
+    atomic_write_json(output_dir / "module5_audit_manifest.json", manifest)
     report = f"""# Module 5 Independent Audit
 
 Status: **{manifest['status']}**
@@ -176,5 +173,5 @@ Status: **{manifest['status']}**
 
 This is a research-only environment audit, not a clinical dosing validation.
 """
-    (output_dir / "module5_audit_report.md").write_text(report, encoding="utf-8")
+    atomic_write_text(output_dir / "module5_audit_report.md", report)
     return manifest

@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+from .io import atomic_write_json
 
 
 def file_sha256(path: Path) -> str:
@@ -71,7 +72,7 @@ def save_attention_artifact(
         "predictive_checkpoint_transfer": False,
         "causal_effect_claim": False,
     }
-    path.with_suffix(".json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    atomic_write_json(path.with_suffix(".json"), metadata)
     return metadata
 
 
