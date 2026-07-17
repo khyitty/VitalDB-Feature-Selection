@@ -16,10 +16,12 @@ versioned protocol states otherwise. It is not an exact reproduction, is not
 clinically validated, and must not be used for dosing or patient care.
 
 Prediction attention rankings are materially unstable across seeds. Attention is
-an association and reproducibility diagnostic, not causal importance, and a
-single-seed top-k is prohibited. For end-to-end consistency, the final prediction
-feature universe is restricted to variables that can also be generated causally by
-the reconstructed PK-PD control simulator.
+therefore preserved as an auxiliary association and reproducibility analysis, not
+used as the primary selector or described as causal importance. The primary feature
+selection method is train-only, patient-level Elastic Net stability selection. For
+end-to-end consistency, the final prediction feature universe is restricted to
+variables that can also be generated causally by the reconstructed PK-PD control
+simulator.
 
 The version-2 `simulator_compatible` universe contains 13 dynamic candidates: BIS,
 `bis_delta_10s`, fixed-target BIS error, causal propofol/remifentanil rate and dose
@@ -128,6 +130,62 @@ done
 ```
 
 This command does not choose the selected subset and does not load the test split.
+
+## Primary feature-selection workflow
+
+The main analysis proceeds in the following order:
+
+1. Evaluate latest-BIS persistence on validation only.
+2. Run patient-level Elastic Net stability selection using training cases only.
+3. Preserve explicit feature attention as a secondary analysis.
+4. Compare frequency-threshold candidate subsets by validation group ablation.
+5. Freeze the selected state before downstream PPO validation.
+
+`bis_target_error` is excluded from Elastic Net because it is deterministically
+duplicated by standardized BIS under the fixed BIS target of 50. The remaining 12
+dynamic features each form one six-lag group. Age, sex, height, and weight are
+included as unpenalized covariates in every fit but do not receive selection
+frequencies. Hyperparameters are selected with patient-level `GroupKFold`; patient
+bootstrap and inverse-window-count weighting prevent long cases from dominating.
+Neither validation nor test is used to fit the selector.
+
+Run the validation-only persistence baseline in Windows PowerShell:
+
+```powershell
+python -u scripts/run_persistence_baseline.py `
+  --dataset-dir data/modeling/simulator_compatible_v2/full `
+  --output-dir outputs/simulator_compatible_prediction_v2/persistence `
+  --validation-only
+```
+
+Run the three-bootstrap integration smoke without reading validation or test:
+
+```powershell
+python -u scripts/run_elastic_net_stability.py `
+  --dataset-dir data/modeling/simulator_compatible_v2/full `
+  --output-dir outputs/simulator_compatible_prediction_v2/elastic_net_stability_smoke `
+  --seed 42 `
+  --smoke
+```
+
+After reviewing the smoke artifacts, run the planned 100 patient bootstraps with:
+
+```powershell
+python -u scripts/run_elastic_net_stability.py `
+  --dataset-dir data/modeling/simulator_compatible_v2/full `
+  --output-dir outputs/simulator_compatible_prediction_v2/elastic_net_stability `
+  --seed 42 `
+  --bootstrap-count 100 `
+  --cv-folds 5 `
+  --l1-ratios 0.1,0.5,0.9,1.0 `
+  --alpha-min 1e-4 `
+  --alpha-max 1 `
+  --alpha-count 9 `
+  --coefficient-tolerance 1e-6
+```
+
+The `0.80`, `0.60`, and `0.40` frequency JSON files are candidate subsets for
+validation ablation. They do not automatically become the final PPO state manifest.
 
 Run the synthetic test suite:
 

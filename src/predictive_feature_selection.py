@@ -221,7 +221,8 @@ def load_train_selection_data(dataset_dir: Path) -> TrainSelectionData:
     if metadata.get("feature_profile") == SIMULATOR_COMPATIBLE_PROFILE:
         raise ValueError(
             "This Elastic Net/XGBoost selector is legacy exploratory and cannot select "
-            "the final simulator-compatible state. Use the new explicit-attention rerun."
+            "the final simulator-compatible state. Use "
+            "scripts/run_elastic_net_stability.py."
         )
     dynamic_names = tuple(metadata["dynamic_feature_names"])
     static_names = tuple(metadata["static_feature_names"])
