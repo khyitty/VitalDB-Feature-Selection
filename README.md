@@ -138,7 +138,7 @@ The main analysis proceeds in the following order:
 1. Evaluate latest-BIS persistence on validation only.
 2. Run patient-level Elastic Net stability selection using training cases only.
 3. Preserve explicit feature attention as a secondary analysis.
-4. Compare frequency-threshold candidate subsets by validation group ablation.
+4. Compare predefined nested physiological groups by validation GRU ablation.
 5. Freeze the selected state before downstream PPO validation.
 
 `bis_target_error` is excluded from Elastic Net because it is deterministically
@@ -184,8 +184,45 @@ python -u scripts/run_elastic_net_stability.py `
   --coefficient-tolerance 1e-6
 ```
 
-The `0.80`, `0.60`, and `0.40` frequency JSON files are candidate subsets for
-validation ablation. They do not automatically become the final PPO state manifest.
+The completed 100-bootstrap run selected 11 of 12 dynamic groups at frequency 0.80
+and all 12 at 0.60/0.40. Those train-only results remain ranking and stability
+evidence, but the frequency thresholds did not produce useful sparse subsets.
+
+The next validation screen compares six predefined candidates while keeping the
+patient split, four static covariates, six lags, GRU architecture, optimizer,
+sampling, seed, and early-stopping settings fixed. `bis_target_error` is absent from
+every candidate. Run the fast two-epoch, reduced-case integration smoke with:
+
+```powershell
+python -u scripts/run_validation_group_ablation.py `
+  --dataset-dir data/modeling/simulator_compatible_v2/full `
+  --output-dir outputs/simulator_compatible_prediction_v2/group_ablation_smoke `
+  --seed 42 `
+  --device cpu `
+  --candidate all `
+  --validation-only `
+  --smoke `
+  --skip-completed
+```
+
+Run the full validation-only 50-epoch screening with:
+
+```powershell
+python -u scripts/run_validation_group_ablation.py `
+  --dataset-dir data/modeling/simulator_compatible_v2/full `
+  --output-dir outputs/simulator_compatible_prediction_v2/group_ablation `
+  --seed 42 `
+  --device cpu `
+  --candidate all `
+  --validation-only `
+  --skip-completed
+```
+
+Candidates can also be resumed individually with `--candidate bis_only_2`,
+`core_6`, `pkpd_8`, `pkpd_cumulative_10`, `full_12_no_duplicate`, or `no_cpce_8`.
+The root summary reports validation metrics and differences from
+`full_12_no_duplicate`. These are screening candidates only; the command does not
+create or freeze a selected PPO state and never loads the test split.
 
 Run the synthetic test suite:
 
