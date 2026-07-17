@@ -26,6 +26,7 @@ def test_prediction_and_rl_use_identical_names_units_windows_and_parents() -> No
     profile = get_prediction_feature_profile(SIMULATOR_COMPATIBLE_PROFILE)
     assert profile.dynamic_feature_names == END_TO_END_DYNAMIC_FEATURES
     assert profile.static_feature_names == END_TO_END_STATIC_FEATURES
+    assert len(profile.dynamic_feature_names) == 13
     rows = prediction_rl_definition_rows()
     assert [row["name"] for row in rows] == list(profile.feature_names)
     for row in rows:
@@ -69,7 +70,7 @@ def test_profile_metadata_is_strict_json_and_does_not_claim_selection() -> None:
     profile = get_prediction_feature_profile(SIMULATOR_COMPATIBLE_PROFILE)
     payload = profile.as_metadata()
     assert payload["final_selected_feature_set_decided"] is False
-    assert json.loads(json.dumps(payload, allow_nan=False))["feature_profile_version"] == 1
+    assert json.loads(json.dumps(payload, allow_nan=False))["feature_profile_version"] == 2
 
 
 def test_main_dataset_cannot_be_relabelled_as_legacy_to_bypass_guard(tmp_path) -> None:

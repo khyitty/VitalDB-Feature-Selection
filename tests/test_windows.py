@@ -121,6 +121,8 @@ def test_end_to_end_synthetic_pipeline_saves_reloadable_ordered_arrays(tmp_path:
     assert metadata["history_steps"] == 6
     assert metadata["prediction_horizon_seconds"] == 30
     assert metadata["feature_profile"] == "simulator_compatible"
+    assert metadata["feature_profile_version"] == 2
+    assert len(metadata["dynamic_feature_names"]) == 13
     assert metadata["preprocessing_fit_split"] == "train_only"
     assert metadata["test_results_inspected"] is False
     assert metadata["test_target_summary_sealed"] is True
@@ -132,3 +134,4 @@ def test_end_to_end_synthetic_pipeline_saves_reloadable_ordered_arrays(tmp_path:
     }
     assert (result.output_dir / "preprocessing.pkl").exists()
     assert (result.output_dir / "feature_manifest.csv").exists()
+    assert (result.output_dir / "pkpd_reconstruction_audit.json").exists()

@@ -21,23 +21,25 @@ single-seed top-k is prohibited. For end-to-end consistency, the final predictio
 feature universe is restricted to variables that can also be generated causally by
 the reconstructed PK-PD control simulator.
 
-The main `simulator_compatible` universe contains BIS, `bis_delta_10s`, fixed-target
-BIS error, causal propofol/remifentanil rate and dose history, and age/sex/height/
-weight. HR/PLETH_HR, blood pressure, SpO2, ETCO2, respiratory signals, HRV, PLETH
-features, and BIS SQI are excluded. Recorded Orchestra CP/CE tracks are also excluded
-because prediction preprocessing does not yet reconstruct them with the repository
-PK-PD model. Prior physiological-inclusive datasets, attention rankings, ablations,
-`strict_consensus`, and frozen candidates remain legacy exploratory artifacts and are
-not the final feature selection.
+The version-2 `simulator_compatible` universe contains 13 dynamic candidates: BIS,
+`bis_delta_10s`, fixed-target BIS error, causal propofol/remifentanil rate and dose
+history, and four Schnider/Minto Cp/Ce reconstructions. Age, sex, height, and weight
+are static context. HR/PLETH_HR, blood pressure, SpO2, ETCO2, respiratory signals,
+HRV, PLETH features, and BIS SQI remain excluded. Orchestra CP/CE are device-reported
+TCI estimates, not direct concentration measurements; they are comparison-only and
+never share the canonical names. CT target-concentration tracks are not loaded.
+Prior physiological-inclusive and 9-feature version-1 datasets, rankings, ablations,
+`strict_consensus`, and frozen candidates remain legacy exploratory artifacts.
 
 ## Canonical RL state profiles
 
 - `original_reconstructed`: Yun-informed seven-concept dynamic history with
   demographics, reconstructed using causal raw BIS rather than an unspecified
-  online LOWESS implementation.
-- `all_supported`: the complete end-to-end simulator-compatible 9-feature dynamic
-  universe shared with the final prediction profile.
-- `selected`: features loaded only from a validated, versioned JSON manifest.
+  online LOWESS implementation. It does not expose Cp/Ce.
+- `all_supported`: all 13 simulator-compatible dynamic candidates, including
+  Schnider/Minto Cp/Ce, plus demographics.
+- `selected`: features loaded only from a validated, versioned JSON manifest; Cp/Ce
+  may be retained or removed by the later validation-only selection procedure.
 - `legacy_control_aware`: former `selected_control_aware` debugging subset. It is
   not the proposed selected state.
 
@@ -88,9 +90,17 @@ Build all eligible cases into the new main path without overwriting legacy data:
 python scripts/build_prediction_dataset.py --full
 ```
 
-The outputs are written to `data/modeling/simulator_compatible/{pilot,full}`. Test
+The outputs are written to `data/modeling/simulator_compatible_v2/{pilot,full}`. Test
 arrays are serialized for the later locked evaluation, but test target summaries are
 sealed and are not emitted by the builder or used during feature selection.
+
+Cp/Ce are reconstructed forward from case-start raw Orchestra rate histories and
+patient demographics using the same exact Schnider/Minto implementation as the RL
+simulator. `pkpd_reconstruction_audit.json` records initial-state and missing-rate
+limitations. Device-reported CP/CE agreement is summarized for train/validation only.
+VitalDB documents those tracks as TCI-pump plasma/effect-site estimates but does not
+establish the pump's exact model version and covariate configuration as equivalent to
+this repository, so recorded values are never substituted for reconstructed values.
 
 The old `data/modeling/full` dataset and all commands/results derived from its
 physiological-inclusive 18/17-feature universe are legacy exploratory work. They can
@@ -103,8 +113,8 @@ five-seed prediction rerun is:
 ```powershell
 $seeds = 7,21,42,84,123
 foreach ($seed in $seeds) {
-  python scripts/run_simulator_compatible_gru.py --dataset-dir data/modeling/simulator_compatible/full --output-dir "outputs/simulator_compatible_prediction/gru/seed_$seed" --seed $seed --max-epochs 50 --patience 8 --batch-size 256 --device cuda --validation-only
-  python scripts/run_simulator_compatible_attention.py --dataset-dir data/modeling/simulator_compatible/full --output-dir "outputs/simulator_compatible_prediction/attention/seed_$seed" --seed $seed --max-epochs 50 --patience 8 --batch-size 256 --device cuda --validation-only
+  python scripts/run_simulator_compatible_gru.py --dataset-dir data/modeling/simulator_compatible_v2/full --output-dir "outputs/simulator_compatible_prediction_v2/gru/seed_$seed" --seed $seed --max-epochs 50 --patience 8 --batch-size 256 --device cuda --validation-only
+  python scripts/run_simulator_compatible_attention.py --dataset-dir data/modeling/simulator_compatible_v2/full --output-dir "outputs/simulator_compatible_prediction_v2/attention/seed_$seed" --seed $seed --max-epochs 50 --patience 8 --batch-size 256 --device cuda --validation-only
 }
 ```
 
@@ -112,8 +122,8 @@ Colab/Linux equivalent:
 
 ```bash
 for seed in 7 21 42 84 123; do
-  python scripts/run_simulator_compatible_gru.py --dataset-dir data/modeling/simulator_compatible/full --output-dir "outputs/simulator_compatible_prediction/gru/seed_${seed}" --seed "${seed}" --max-epochs 50 --patience 8 --batch-size 256 --device cuda --validation-only
-  python scripts/run_simulator_compatible_attention.py --dataset-dir data/modeling/simulator_compatible/full --output-dir "outputs/simulator_compatible_prediction/attention/seed_${seed}" --seed "${seed}" --max-epochs 50 --patience 8 --batch-size 256 --device cuda --validation-only
+  python scripts/run_simulator_compatible_gru.py --dataset-dir data/modeling/simulator_compatible_v2/full --output-dir "outputs/simulator_compatible_prediction_v2/gru/seed_${seed}" --seed "${seed}" --max-epochs 50 --patience 8 --batch-size 256 --device cuda --validation-only
+  python scripts/run_simulator_compatible_attention.py --dataset-dir data/modeling/simulator_compatible_v2/full --output-dir "outputs/simulator_compatible_prediction_v2/attention/seed_${seed}" --seed "${seed}" --max-epochs 50 --patience 8 --batch-size 256 --device cuda --validation-only
 done
 ```
 
@@ -149,7 +159,7 @@ This simulator is a research reconstruction of published PK-PD equations. It is 
 medical device and must not be used for clinical dosing.
 
 Pilot arrays are saved to
-`data/modeling/simulator_compatible/pilot/{train,val,test}.npz`; matching window
+`data/modeling/simulator_compatible_v2/pilot/{train,val,test}.npz`; matching window
 metadata, split case lists, feature/preprocessing metadata, and the dataset report are
 saved in the same directory.
 

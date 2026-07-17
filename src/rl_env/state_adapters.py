@@ -14,6 +14,7 @@ from src.pkpd.demographics import PatientDemographics
 from .config import StateProfileName
 from .history import HistoryBuffer
 from .state_manifests import (
+    END_TO_END_DYNAMIC_FEATURES,
     FEATURE_REGISTRY,
     SelectedStateManifest,
     feature_registry_metadata,
@@ -34,17 +35,7 @@ ORIGINAL_YUN_FEATURES = (
     "remifentanil_recent_dose_micrograms",
 )
 
-ALL_SUPPORTED_FEATURES = (
-    "bis",
-    "bis_delta_10s",
-    "bis_target_error",
-    "propofol_rate_mg_per_min",
-    "propofol_recent_dose_mg",
-    "propofol_cumulative_dose_mg",
-    "remifentanil_rate_micrograms_per_min",
-    "remifentanil_recent_dose_micrograms",
-    "remifentanil_cumulative_dose_micrograms",
-)
+ALL_SUPPORTED_FEATURES = END_TO_END_DYNAMIC_FEATURES
 
 SELECTED_CONTROL_AWARE_FEATURES = (
     "bis",

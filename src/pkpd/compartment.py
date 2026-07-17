@@ -121,14 +121,26 @@ def exact_zero_order_hold_step(
 ) -> np.ndarray:
     """Integrate one constant-rate interval using an augmented matrix exponential."""
 
+    transition, control = exact_zero_order_hold_transition(parameters, duration_seconds)
+    result = transition @ vector + control * infusion_rate_per_min
+    return _clean_physical_vector(result)
+
+
+def exact_zero_order_hold_transition(
+    parameters: DrugPKParameters,
+    duration_seconds: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return reusable exact state and infusion transitions for one hold interval."""
+
+    if not math.isfinite(duration_seconds) or duration_seconds <= 0.0:
+        raise ValueError("duration_seconds must be finite and positive.")
     duration_min = seconds_to_minutes(duration_seconds)
     matrix, infusion = system_matrix(parameters)
     augmented = np.zeros((6, 6), dtype=np.float64)
     augmented[:5, :5] = matrix
     augmented[:5, 5] = infusion
-    transition = expm(augmented * duration_min)
-    result = transition[:5, :5] @ vector + transition[:5, 5] * infusion_rate_per_min
-    return _clean_physical_vector(result)
+    augmented_transition = expm(augmented * duration_min)
+    return augmented_transition[:5, :5], augmented_transition[:5, 5]
 
 
 def solve_ivp_reference_step(

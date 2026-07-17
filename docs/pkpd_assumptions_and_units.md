@@ -2,15 +2,19 @@
 
 ## Scope
 
-This module is a research reconstruction of published propofol/remifentanil PK–PD
+This module is a research reconstruction of published propofol/remifentanil PK-PD
 equations. It is not a medical device and must not be used for clinical dosing. It is
-not externally validated and is not yet connected to an RL environment.
+not externally validated.
 
 The simulator generates drug compartment states and BIS only. It does **not** generate
 HR, MBP, SBP, DBP, SpO2, ETCO2, or HRV. Those signals remain only in legacy
 physiological-inclusive prediction artifacts because no source-supported transition
 equations were found. The final prediction and RL candidate universe uses only the
-shared simulator-compatible contract.
+shared simulator-compatible contract. Offline prediction Cp/Ce are reconstructed
+causally from infusion histories and demographics with these same Schnider/Minto
+equations. Orchestra CP/CE are device-reported TCI estimates used only for agreement
+auditing, not direct measurements or canonical model inputs. CT target concentration
+is never treated as Cp or Ce.
 
 ## Unit system
 

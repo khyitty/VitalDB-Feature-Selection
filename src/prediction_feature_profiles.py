@@ -21,7 +21,7 @@ PredictionFeatureProfileName = Literal[
 
 SIMULATOR_COMPATIBLE_PROFILE = "simulator_compatible"
 LEGACY_PHYSIOLOGICAL_PROFILE = "legacy_physiological_exploratory"
-SIMULATOR_COMPATIBLE_PROFILE_VERSION = 1
+SIMULATOR_COMPATIBLE_PROFILE_VERSION = 2
 
 LEGACY_DYNAMIC_FEATURES = (
     "bis",

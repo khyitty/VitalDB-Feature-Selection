@@ -26,6 +26,16 @@ def _write_metadata(tmp_path, **overrides) -> None:
     (tmp_path / "dataset_metadata.json").write_text(
         json.dumps(payload), encoding="utf-8"
     )
+    (tmp_path / "pkpd_reconstruction_audit.json").write_text(
+        json.dumps(
+            {
+                "causal": True,
+                "target_concentration_used": False,
+                "recorded_cp_ce_used_as_model_features": False,
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
 def test_main_prediction_run_accepts_only_locked_validation_dataset(tmp_path) -> None:

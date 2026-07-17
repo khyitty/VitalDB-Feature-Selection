@@ -19,9 +19,13 @@ Its future-BIS horizon is 30 seconds. Static covariates and train-fitted preproc
 
 For end-to-end consistency, the final prediction feature universe is restricted to
 variables that can also be generated causally by the reconstructed PK-PD control
-simulator. The new dataset lives under `data/modeling/simulator_compatible`, uses
+simulator. The version-2 dataset lives under `data/modeling/simulator_compatible_v2`, uses
 `bis_delta_10s` for an exact 10-second BIS change, reuses the frozen patient split,
 fits preprocessing on train only, and seals test summaries during selection.
+Its 13 dynamic candidates include causal Schnider/Minto Cp/Ce reconstructed from
+case-start pump-rate history. Device-reported Orchestra CP/CE are comparison-only;
+CT target concentrations are never used as Cp/Ce. The Yun-style
+`original_reconstructed` state remains without explicit Cp/Ce.
 
 ## Control-Aware State Rule
 

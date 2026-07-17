@@ -163,11 +163,19 @@ def test_original_reconstructed_ordered_schema() -> None:
         == ORIGINAL_YUN_FEATURES
     )
     assert len(ORIGINAL_YUN_FEATURES) == 7
+    assert not any("_cp_" in name or "_ce_" in name for name in ORIGINAL_YUN_FEATURES)
 
 
 def test_all_supported_ordered_schema() -> None:
     assert STATE_PROFILES["all_supported"].dynamic_feature_names == ALL_SUPPORTED_FEATURES
     assert ALL_SUPPORTED_FEATURES[0:3] == ("bis", "bis_delta_10s", "bis_target_error")
+    assert len(ALL_SUPPORTED_FEATURES) == 13
+    assert {
+        "propofol_cp_mg_per_l",
+        "propofol_ce_mg_per_l",
+        "remifentanil_cp_micrograms_per_l",
+        "remifentanil_ce_micrograms_per_l",
+    }.issubset(ALL_SUPPORTED_FEATURES)
 
 
 def test_attention_ready_history_and_static_shapes() -> None:

@@ -142,24 +142,32 @@ FEATURE_REGISTRY: dict[str, FeatureMetadata] = {
         ),
         _dynamic(
             "propofol_cp_mg_per_l",
-            "Propofol central plasma concentration.",
+            "Causal Schnider propofol central plasma concentration.",
             "mg/L",
             10.0,
-            end_to_end_eligible=False,
-            eligibility_note=(
-                "Simulator-supported, but the final prediction preprocessing does not "
-                "reconstruct it with the same PK model."
+            raw_or_derived="derived",
+            deterministic_parents=(
+                "propofol_rate_history_mg_per_min",
+                "age_years",
+                "sex_male",
+                "height_cm",
+                "weight_kg",
+                "Schnider_PK",
             ),
         ),
         _dynamic(
             "propofol_ce_mg_per_l",
-            "Propofol effect-site concentration.",
+            "Causal Schnider propofol effect-site concentration.",
             "mg/L",
             10.0,
-            end_to_end_eligible=False,
-            eligibility_note=(
-                "Simulator-supported, but the final prediction preprocessing does not "
-                "reconstruct it with the same PK-PD model."
+            raw_or_derived="derived",
+            deterministic_parents=(
+                "propofol_rate_history_mg_per_min",
+                "age_years",
+                "sex_male",
+                "height_cm",
+                "weight_kg",
+                "Schnider_effect_site",
             ),
         ),
         _dynamic(
@@ -185,24 +193,32 @@ FEATURE_REGISTRY: dict[str, FeatureMetadata] = {
         ),
         _dynamic(
             "remifentanil_cp_micrograms_per_l",
-            "Remifentanil central plasma concentration.",
+            "Causal Minto remifentanil central plasma concentration.",
             "microgram/L",
             20.0,
-            end_to_end_eligible=False,
-            eligibility_note=(
-                "Simulator-supported, but the final prediction preprocessing does not "
-                "reconstruct it with the same PK model."
+            raw_or_derived="derived",
+            deterministic_parents=(
+                "remifentanil_rate_history_micrograms_per_min",
+                "age_years",
+                "sex_male",
+                "height_cm",
+                "weight_kg",
+                "Minto_PK",
             ),
         ),
         _dynamic(
             "remifentanil_ce_micrograms_per_l",
-            "Remifentanil effect-site concentration.",
+            "Causal Minto remifentanil effect-site concentration.",
             "microgram/L",
             20.0,
-            end_to_end_eligible=False,
-            eligibility_note=(
-                "Simulator-supported, but the final prediction preprocessing does not "
-                "reconstruct it with the same PK-PD model."
+            raw_or_derived="derived",
+            deterministic_parents=(
+                "remifentanil_rate_history_micrograms_per_min",
+                "age_years",
+                "sex_male",
+                "height_cm",
+                "weight_kg",
+                "Minto_effect_site",
             ),
         ),
         _static("age_years", "Patient age used by the reconstructed PK models.", "year", 100.0),
@@ -239,9 +255,13 @@ END_TO_END_DYNAMIC_FEATURES = (
     "propofol_rate_mg_per_min",
     "propofol_recent_dose_mg",
     "propofol_cumulative_dose_mg",
+    "propofol_cp_mg_per_l",
+    "propofol_ce_mg_per_l",
     "remifentanil_rate_micrograms_per_min",
     "remifentanil_recent_dose_micrograms",
     "remifentanil_cumulative_dose_micrograms",
+    "remifentanil_cp_micrograms_per_l",
+    "remifentanil_ce_micrograms_per_l",
 )
 END_TO_END_STATIC_FEATURES = ("age_years", "sex_male", "height_cm", "weight_kg")
 END_TO_END_FEATURES = (*END_TO_END_DYNAMIC_FEATURES, *END_TO_END_STATIC_FEATURES)

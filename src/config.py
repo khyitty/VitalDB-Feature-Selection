@@ -18,9 +18,11 @@ class PipelineConfig:
     """
 
     input_path: Path = Path("data/processed/vitaldb_clean_100cases.csv")
-    output_dir: Path = Path("data/modeling/simulator_compatible/pilot")
+    pkpd_history_path: Path = Path("data/raw/vitaldb_raw_100cases.csv")
+    output_dir: Path = Path("data/modeling/simulator_compatible_v2/pilot")
     feature_profile: str = SIMULATOR_COMPATIBLE_PROFILE
     split_reference_dir: Path | None = None
+    pkpd_max_rate_hold_seconds: int = 10
     seed: int = 42
     train_fraction: float = 0.70
     val_fraction: float = 0.15
@@ -49,6 +51,8 @@ class PipelineConfig:
                 "The simulator-compatible profile fixes resampling at the 10-second "
                 "RL action interval."
             )
+        if self.pkpd_max_rate_hold_seconds <= 0:
+            raise ValueError("PK-PD maximum rate hold must be positive.")
 
     @property
     def history_steps(self) -> int:

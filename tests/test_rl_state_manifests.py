@@ -79,11 +79,11 @@ def test_prediction_only_physiology_is_rejected_from_rl_manifest(feature: str) -
         "remifentanil_ce_micrograms_per_l",
     ],
 )
-def test_recorded_concentration_mismatch_is_rejected_from_final_state(feature: str) -> None:
-    with pytest.raises(StateManifestError, match="does not reconstruct"):
-        validate_selected_state_manifest(
-            _resolved_manifest(feature_names=["bis", feature])
-        )
+def test_reconstructed_concentration_can_be_retained_by_selected_state(feature: str) -> None:
+    manifest = validate_selected_state_manifest(
+        _resolved_manifest(feature_names=["bis", feature])
+    )
+    assert manifest.feature_names == ("bis", feature)
 
 
 def test_test_split_selection_and_unknown_features_are_rejected() -> None:

@@ -27,18 +27,26 @@ cross-seed instability must remain visible. Attention is not a causal effect.
 
 For end-to-end consistency, the final prediction feature universe is restricted to
 variables that can also be generated causally by the reconstructed PK-PD control
-simulator. The exact shared dynamic universe is BIS, `bis_delta_10s`, fixed-target BIS
-error, current propofol/remifentanil rates, causal 60-second recent doses, and causal
-cumulative doses. Static context is age, sex, height, and weight. `bis_delta_10s`
+simulator. The exact shared dynamic universe has 13 candidates: BIS, `bis_delta_10s`,
+fixed-target BIS error, current propofol/remifentanil rates, causal 60-second recent
+doses, causal cumulative doses, and Schnider/Minto Cp/Ce reconstructed from rate
+history and demographics. Static context is age, sex, height, and weight. `bis_delta_10s`
 always means `BIS[t] - BIS[t-10 seconds]`; the ambiguous historical `bis_slope` name
 is prohibited in the main profile.
 
 HR/PLETH_HR, invasive/noninvasive blood pressure, SpO2, ETCO2, respiratory signals,
-HRV, PLETH-derived signals, and BIS SQI are ineligible. Recorded Orchestra CP/CE
-tracks are not final candidates because they are not reconstructed with the same
-repository PK-PD implementation during prediction preprocessing. Prior attention,
+HRV, PLETH-derived signals, and BIS SQI are ineligible. Recorded Orchestra CP/CE are
+device-reported TCI estimates used only to audit agreement with the canonical
+reconstructions; they are not direct measurements or candidate definitions. CT is
+not Cp or Ce. `original_reconstructed` remains Cp/Ce-free, while `all_supported`
+contains all four and `selected` may retain or remove them. Prior attention,
 ablation, `strict_consensus`, and frozen-candidate outputs are legacy exploratory
 evidence and cannot supply the final selected manifest.
+
+VitalDB metadata establishes that Orchestra CP/CE are TCI-pump estimates, but it does
+not establish exact equivalence of pump model version, covariates, initialization,
+or effect-site implementation. The build therefore quantifies agreement without
+using the recorded estimates as canonical inputs.
 
 ## Reconstruction boundary
 

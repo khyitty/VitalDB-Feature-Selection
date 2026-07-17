@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 
 from src.config import PipelineConfig
+from src.pkpd.reconstruction import reconstruct_causal_pk_concentrations
 from src.preprocessing import (
     add_derived_features,
     apply_preprocessor,
@@ -81,6 +82,43 @@ def load_cleaned_data(path: Path) -> pd.DataFrame:
     if nonpositive:
         raise ValueError(f"Input contains {int(nonpositive)} non-increasing case timestamps.")
     return frame
+
+
+def load_pkpd_history(path: Path) -> pd.DataFrame:
+    """Load only pump-history columns needed for causal PK reconstruction."""
+
+    if not path.is_file():
+        raise FileNotFoundError(f"Raw PK-PD infusion history does not exist: {path}")
+    columns = pd.read_csv(path, nrows=0).columns
+    canonical = [
+        "caseid",
+        "time_sec",
+        "Orchestra/PPF20_RATE",
+        "Orchestra/PPF20_VOL",
+        "Orchestra/PPF20_CP",
+        "Orchestra/PPF20_CE",
+        "Orchestra/RFTN20_RATE",
+        "Orchestra/RFTN20_VOL",
+        "Orchestra/RFTN20_CP",
+        "Orchestra/RFTN20_CE",
+    ]
+    aliases = [
+        "caseid",
+        "time_sec",
+        "PPF_RATE",
+        "PPF_VOL",
+        "PPF_CP",
+        "PPF_CE",
+        "RFTN_RATE",
+        "RFTN_VOL",
+        "RFTN_CP",
+        "RFTN_CE",
+    ]
+    selected = canonical if set(canonical).issubset(columns) else aliases
+    missing = sorted(set(selected) - set(columns))
+    if missing:
+        raise ValueError(f"Raw PK-PD history is missing required tracks: {missing}")
+    return pd.read_csv(path, usecols=selected, low_memory=False)
 
 
 def _count_irregular_gaps(
@@ -149,11 +187,61 @@ def _json_dump(payload: dict[str, Any], path: Path) -> None:
         handle.write("\n")
 
 
+CONCENTRATION_COMPARISON_PAIRS = {
+    "propofol_cp_mg_per_l": "__recorded_orchestra_propofol_cp_mg_per_l",
+    "propofol_ce_mg_per_l": "__recorded_orchestra_propofol_ce_mg_per_l",
+    "remifentanil_cp_micrograms_per_l": (
+        "__recorded_orchestra_remifentanil_cp_micrograms_per_l"
+    ),
+    "remifentanil_ce_micrograms_per_l": (
+        "__recorded_orchestra_remifentanil_ce_micrograms_per_l"
+    ),
+}
+
+
+def _concentration_agreement(frame: pd.DataFrame) -> dict[str, dict[str, float | int | None]]:
+    """Compare reconstructed concentrations with device-reported TCI estimates."""
+
+    result: dict[str, dict[str, float | int | None]] = {}
+    for reconstructed_name, recorded_name in CONCENTRATION_COMPARISON_PAIRS.items():
+        if recorded_name not in frame:
+            result[reconstructed_name] = {
+                "paired_count": 0,
+                "paired_coverage_fraction": 0.0,
+                "mae": None,
+                "rmse": None,
+                "mean_reconstructed_minus_recorded": None,
+                "pearson_correlation": None,
+            }
+            continue
+        reconstructed = pd.to_numeric(frame[reconstructed_name], errors="coerce").to_numpy()
+        recorded = pd.to_numeric(frame[recorded_name], errors="coerce").to_numpy()
+        paired = np.isfinite(reconstructed) & np.isfinite(recorded)
+        count = int(paired.sum())
+        difference = reconstructed[paired] - recorded[paired]
+        correlation: float | None = None
+        if count >= 2 and np.std(reconstructed[paired]) > 0 and np.std(recorded[paired]) > 0:
+            correlation = float(np.corrcoef(reconstructed[paired], recorded[paired])[0, 1])
+        result[reconstructed_name] = {
+            "paired_count": count,
+            "paired_coverage_fraction": float(count / len(frame)) if len(frame) else 0.0,
+            "mae": float(np.mean(np.abs(difference))) if count else None,
+            "rmse": float(np.sqrt(np.mean(np.square(difference)))) if count else None,
+            "mean_reconstructed_minus_recorded": (
+                float(np.mean(difference)) if count else None
+            ),
+            "pearson_correlation": correlation,
+        }
+    return result
+
+
 def build_prediction_dataset_from_frame(
     input_frame: pd.DataFrame,
     config: PipelineConfig,
     max_cases: int | None = None,
     input_label: str | None = None,
+    pkpd_history_frame: pd.DataFrame | None = None,
+    pkpd_history_label: str | None = None,
 ) -> BuildResult:
     """Build and save a split-safe future-BIS dataset from an in-memory table."""
 
@@ -167,6 +255,23 @@ def build_prediction_dataset_from_frame(
     input_rows = int(len(frame))
     input_cases = int(frame["caseid"].nunique())
     input_irregular_gaps = _count_irregular_gaps(frame, "time_sec", expected_interval=1)
+
+    reconstruction_audit: dict[str, Any] | None = None
+    if config.feature_profile == SIMULATOR_COMPATIBLE_PROFILE:
+        history = pkpd_history_frame if pkpd_history_frame is not None else input_frame
+        reconstructed, reconstruction_audit = reconstruct_causal_pk_concentrations(
+            history,
+            frame,
+            max_rate_hold_seconds=config.pkpd_max_rate_hold_seconds,
+        )
+        frame = frame.merge(
+            reconstructed,
+            on=["caseid", "time_sec"],
+            how="left",
+            validate="one_to_one",
+        )
+        reconstruction_audit["source_file"] = pkpd_history_label or "in_memory_input_frame"
+        reconstruction_audit["modeling_input_file"] = input_label or str(config.input_path)
 
     feature_specs = feature_specs_for_profile(config.feature_profile)
     included_specs, exclusions = resolve_feature_specs(frame, feature_specs)
@@ -229,6 +334,14 @@ def build_prediction_dataset_from_frame(
         name: selected[selected["caseid"].isin(case_ids)].copy()
         for name, case_ids in splits.as_dict().items()
     }
+    concentration_agreement = (
+        {
+            split_name: _concentration_agreement(split_frames[split_name])
+            for split_name in ("train", "val")
+        }
+        if config.feature_profile == SIMULATOR_COMPATIBLE_PROFILE
+        else None
+    )
     manifest = build_feature_manifest(
         feature_specs, included_specs, exclusions, split_frames["train"]
     )
@@ -324,6 +437,7 @@ def build_prediction_dataset_from_frame(
             config.feature_profile == SIMULATOR_COMPATIBLE_PROFILE
         ),
         "legacy_physiological_outputs_overwritten": False,
+        "prior_simulator_compatible_v1_outputs_overwritten": False,
         "vitaldb_pump_source_contract": (
             {
                 "propofol": {
@@ -343,6 +457,29 @@ def build_prediction_dataset_from_frame(
                 "official_metadata_url": (
                     "https://vitaldb.net/dataset/?query=overview"
                 ),
+                "concentration_feature_provenance": {
+                    "propofol_cp_mg_per_l": (
+                        "Causally reconstructed from Orchestra/PPF20_RATE and patient "
+                        "demographics with the repository Schnider model."
+                    ),
+                    "propofol_ce_mg_per_l": (
+                        "Causally reconstructed from Orchestra/PPF20_RATE and patient "
+                        "demographics with the repository Schnider effect-site model."
+                    ),
+                    "remifentanil_cp_micrograms_per_l": (
+                        "Causally reconstructed from Orchestra/RFTN20_RATE and patient "
+                        "demographics with the repository Minto model."
+                    ),
+                    "remifentanil_ce_micrograms_per_l": (
+                        "Causally reconstructed from Orchestra/RFTN20_RATE and patient "
+                        "demographics with the repository Minto effect-site model."
+                    ),
+                    "recorded_track_role": (
+                        "Orchestra CP/CE are device-reported TCI estimates used only for "
+                        "agreement auditing; they are not direct measurements or model inputs."
+                    ),
+                    "target_concentration_CT_used": False,
+                },
                 "cumulative_dose_policy": (
                     "Within each case, sum non-negative recorded pump-volume increments. "
                     "A volume decrease starts a new pump segment and its current volume "
@@ -373,10 +510,11 @@ def build_prediction_dataset_from_frame(
                     "PLETH_waveform_features",
                     "BIS_SQI",
                 ],
-                "recorded_pkpd_concentrations": (
-                    "PPF_CP/PPF_CE/RFTN_CP/RFTN_CE are not reconstructed by the "
-                    "repository PK-PD simulator in prediction preprocessing."
+                "recorded_pkpd_concentrations_as_features": (
+                    "PPF_CP/PPF_CE/RFTN_CP/RFTN_CE are comparison-only device estimates; "
+                    "canonical Cp/Ce are repository-model reconstructions."
                 ),
+                "target_concentration_CT": "Never loaded or used as Cp/Ce.",
                 "legacy_static_covariates": ["bmi", "asa"],
             }
             if config.feature_profile == SIMULATOR_COMPATIBLE_PROFILE
@@ -384,8 +522,12 @@ def build_prediction_dataset_from_frame(
         ),
         "cases_per_split": case_counts,
         "windows_per_split": window_counts,
+        "concentration_agreement_train_validation_only": concentration_agreement,
     }
     _json_dump(dataset_metadata, output_dir / "dataset_metadata.json")
+
+    if reconstruction_audit is not None:
+        _json_dump(reconstruction_audit, output_dir / "pkpd_reconstruction_audit.json")
 
     report = {
         "feature_profile": config.feature_profile,
@@ -414,6 +556,7 @@ def build_prediction_dataset_from_frame(
             config.feature_profile == SIMULATOR_COMPATIBLE_PROFILE
         ),
         "final_selected_feature_set_decided": False,
+        "concentration_agreement_train_validation_only": concentration_agreement,
         "pump_reset_counts": (
             {
                 "propofol": int(selected["__propofol_pump_reset"].sum()),
@@ -464,6 +607,16 @@ def build_prediction_dataset(
     """Load the configured CSV and build all modeling-data artifacts."""
 
     frame = load_cleaned_data(config.input_path)
+    history = (
+        load_pkpd_history(config.pkpd_history_path)
+        if config.feature_profile == SIMULATOR_COMPATIBLE_PROFILE
+        else None
+    )
     return build_prediction_dataset_from_frame(
-        frame, config, max_cases=max_cases, input_label=str(config.input_path)
+        frame,
+        config,
+        max_cases=max_cases,
+        input_label=str(config.input_path),
+        pkpd_history_frame=history,
+        pkpd_history_label=(str(config.pkpd_history_path) if history is not None else None),
     )

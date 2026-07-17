@@ -33,6 +33,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument(
+        "--pkpd-history",
+        type=Path,
+        default=Path("data/raw/vitaldb_raw_100cases.csv"),
+        help="Case-start raw Orchestra history used for causal Schnider/Minto reconstruction.",
+    )
+    parser.add_argument(
         "--split-reference-dir",
         type=Path,
         default=Path("data/modeling/full/splits"),
@@ -48,7 +54,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     mode = "pilot" if args.pilot else "full"
     profile_root = (
-        "simulator_compatible"
+        "simulator_compatible_v2"
         if args.feature_profile == SIMULATOR_COMPATIBLE_PROFILE
         else "legacy_physiological_exploratory"
     )
@@ -56,6 +62,8 @@ def main() -> None:
     if output_dir.resolve() in {
         Path("data/modeling/pilot").resolve(),
         Path("data/modeling/full").resolve(),
+        Path("data/modeling/simulator_compatible/pilot").resolve(),
+        Path("data/modeling/simulator_compatible/full").resolve(),
     }:
         raise ValueError("Refusing to overwrite prior physiological-inclusive datasets.")
     split_reference = (
@@ -65,6 +73,7 @@ def main() -> None:
     )
     config = PipelineConfig(
         output_dir=output_dir,
+        pkpd_history_path=args.pkpd_history,
         feature_profile=args.feature_profile,
         split_reference_dir=split_reference,
     )

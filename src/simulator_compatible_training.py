@@ -38,6 +38,24 @@ def validate_main_prediction_run(
     }
     if mismatches:
         raise ValueError(f"Dataset scientific guards are incompatible: {mismatches}")
+    audit_path = dataset_dir / "pkpd_reconstruction_audit.json"
+    if not audit_path.is_file():
+        raise FileNotFoundError(f"PK-PD reconstruction audit is missing: {audit_path}")
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    reconstruction_guards = {
+        "causal": True,
+        "target_concentration_used": False,
+        "recorded_cp_ce_used_as_model_features": False,
+    }
+    audit_mismatches = {
+        name: {"expected": expected, "observed": audit.get(name)}
+        for name, expected in reconstruction_guards.items()
+        if audit.get(name) != expected
+    }
+    if audit_mismatches:
+        raise ValueError(
+            f"PK-PD reconstruction guards are incompatible: {audit_mismatches}"
+        )
     return metadata
 
 
@@ -57,12 +75,16 @@ def write_main_run_context(
         text=True,
     )
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "scientific_role": "main_simulator_compatible_prediction_rerun",
         "feature_profile": dataset_metadata["feature_profile"],
         "feature_profile_version": dataset_metadata["feature_profile_version"],
         "dynamic_feature_names": dataset_metadata["dynamic_feature_names"],
         "static_feature_names": dataset_metadata["static_feature_names"],
+        "dynamic_candidate_count": len(dataset_metadata["dynamic_feature_names"]),
+        "pkpd_concentration_provenance": dataset_metadata.get(
+            "vitaldb_pump_source_contract", {}
+        ).get("concentration_feature_provenance"),
         "model_name": model_name,
         "selection_status": "candidate_universe_only_not_final_selection",
         "evaluation_split": "validation_only",

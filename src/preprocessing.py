@@ -8,6 +8,10 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
+from src.pkpd.reconstruction import (
+    PROPOFOL_CONCENTRATION_MG_PER_ML,
+    REMIFENTANIL_CONCENTRATION_MICROGRAMS_PER_ML,
+)
 from src.prediction_feature_profiles import (
     LEGACY_PHYSIOLOGICAL_PROFILE,
     SIMULATOR_COMPATIBLE_PROFILE,
@@ -128,6 +132,20 @@ SIMULATOR_COMPATIBLE_FEATURE_SPECS: tuple[FeatureSpec, ...] = (
         derived=True,
     ),
     FeatureSpec(
+        "propofol_cp_mg_per_l",
+        "propofol_cp_mg_per_l",
+        "dynamic",
+        "last",
+        required=True,
+    ),
+    FeatureSpec(
+        "propofol_ce_mg_per_l",
+        "propofol_ce_mg_per_l",
+        "dynamic",
+        "last",
+        required=True,
+    ),
+    FeatureSpec(
         "RFTN_RATE",
         "remifentanil_rate_micrograms_per_min",
         "dynamic",
@@ -148,10 +166,54 @@ SIMULATOR_COMPATIBLE_FEATURE_SPECS: tuple[FeatureSpec, ...] = (
         "derived_from_profile_start",
         derived=True,
     ),
+    FeatureSpec(
+        "remifentanil_cp_micrograms_per_l",
+        "remifentanil_cp_micrograms_per_l",
+        "dynamic",
+        "last",
+        required=True,
+    ),
+    FeatureSpec(
+        "remifentanil_ce_micrograms_per_l",
+        "remifentanil_ce_micrograms_per_l",
+        "dynamic",
+        "last",
+        required=True,
+    ),
+    FeatureSpec(
+        "__recorded_orchestra_propofol_cp_mg_per_l",
+        "__recorded_orchestra_propofol_cp_mg_per_l",
+        "source_only",
+        "last",
+        include_in_model=False,
+    ),
+    FeatureSpec(
+        "__recorded_orchestra_propofol_ce_mg_per_l",
+        "__recorded_orchestra_propofol_ce_mg_per_l",
+        "source_only",
+        "last",
+        include_in_model=False,
+    ),
+    FeatureSpec(
+        "__recorded_orchestra_remifentanil_cp_micrograms_per_l",
+        "__recorded_orchestra_remifentanil_cp_micrograms_per_l",
+        "source_only",
+        "last",
+        include_in_model=False,
+    ),
+    FeatureSpec(
+        "__recorded_orchestra_remifentanil_ce_micrograms_per_l",
+        "__recorded_orchestra_remifentanil_ce_micrograms_per_l",
+        "source_only",
+        "last",
+        include_in_model=False,
+    ),
 )
 
-PROPOFOL_20_CONCENTRATION_MG_PER_ML = 20.0
-REMIFENTANIL_20_CONCENTRATION_MICROGRAMS_PER_ML = 20.0
+PROPOFOL_20_CONCENTRATION_MG_PER_ML = PROPOFOL_CONCENTRATION_MG_PER_ML
+REMIFENTANIL_20_CONCENTRATION_MICROGRAMS_PER_ML = (
+    REMIFENTANIL_CONCENTRATION_MICROGRAMS_PER_ML
+)
 
 
 def feature_specs_for_profile(profile_name: str) -> tuple[FeatureSpec, ...]:

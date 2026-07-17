@@ -26,7 +26,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--dataset-dir",
         type=Path,
-        default=Path("data/modeling/simulator_compatible/full"),
+        default=Path("data/modeling/simulator_compatible_v2/full"),
     )
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--seed", type=int, default=42)
@@ -59,7 +59,7 @@ def main() -> None:
     )
     run_name = f"smoke_seed_{args.seed}" if args.smoke else f"seed_{args.seed}"
     output_dir = args.output_dir or Path(
-        "outputs/simulator_compatible_prediction/gru"
+        "outputs/simulator_compatible_prediction_v2/gru"
     ) / run_name
     config = TrainingConfig(
         dataset_dir=args.dataset_dir,
