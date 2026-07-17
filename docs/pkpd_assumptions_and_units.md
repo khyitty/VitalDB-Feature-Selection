@@ -7,10 +7,10 @@ equations. It is not a medical device and must not be used for clinical dosing. 
 not externally validated and is not yet connected to an RL environment.
 
 The simulator generates drug compartment states and BIS only. It does **not** generate
-HR, MBP, SBP, DBP, SpO2, ETCO2, or HRV. Those signals were available to the predictive
-stage, but no source-supported transition equations were found for this simulator.
-Future RL comparisons must use simulator-supported control states until separate
-vital-sign dynamics are validated.
+HR, MBP, SBP, DBP, SpO2, ETCO2, or HRV. Those signals remain only in legacy
+physiological-inclusive prediction artifacts because no source-supported transition
+equations were found. The final prediction and RL candidate universe uses only the
+shared simulator-compatible contract.
 
 ## Unit system
 

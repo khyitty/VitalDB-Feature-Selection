@@ -1,4 +1,4 @@
-"""Validation-only predictive-contribution and attention-faithfulness audit."""
+"""Legacy physiological-inclusive attention-faithfulness audit."""
 
 from __future__ import annotations
 
@@ -735,6 +735,7 @@ def run_faithfulness_audit(
     faithfulness.to_csv(output_dir / "attention_faithfulness.csv", index=False)
     bootstrap.to_csv(output_dir / "patient_bootstrap_summary.csv", index=False)
     audit = {
+        "scientific_role": "legacy_physiological_exploratory_not_final_selection",
         "scope": {
             "validation_only": True,
             "test_labels_or_test_importance_accessed": False,

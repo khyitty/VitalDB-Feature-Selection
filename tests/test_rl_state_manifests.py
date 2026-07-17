@@ -64,7 +64,23 @@ def test_resolved_selected_manifest_preserves_exact_feature_order(tmp_path: Path
 
 @pytest.mark.parametrize("feature", ["hr", "mbp", "spo2", "etco2", "bis_sqi", "hrv"])
 def test_prediction_only_physiology_is_rejected_from_rl_manifest(feature: str) -> None:
-    with pytest.raises(StateManifestError, match="prediction-only or simulator-unsupported"):
+    with pytest.raises(StateManifestError, match="not eligible for the final end-to-end"):
+        validate_selected_state_manifest(
+            _resolved_manifest(feature_names=["bis", feature])
+        )
+
+
+@pytest.mark.parametrize(
+    "feature",
+    [
+        "propofol_cp_mg_per_l",
+        "propofol_ce_mg_per_l",
+        "remifentanil_cp_micrograms_per_l",
+        "remifentanil_ce_micrograms_per_l",
+    ],
+)
+def test_recorded_concentration_mismatch_is_rejected_from_final_state(feature: str) -> None:
+    with pytest.raises(StateManifestError, match="does not reconstruct"):
         validate_selected_state_manifest(
             _resolved_manifest(feature_names=["bis", feature])
         )

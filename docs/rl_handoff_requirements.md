@@ -1,18 +1,27 @@
 # RL Handoff Requirements
 
-## Current Status
+## Legacy Notice
 
-The repository does not contain the professor's propofol-control implementation. No Gymnasium environment, PK-PD simulator, action contract, reward, episode termination logic, RL agent, or baseline policy checkpoint was found. The `main.py` propofol logic only crops observational records to the propofol administration period.
+This document originally described the pre-simulator handoff. The repository now has
+a reconstructed PK-PD simulator and Gymnasium environment. The physiological-inclusive
+predictive state below is retained only to interpret historical artifacts; it is not
+the final main state.
 
-RL implementation and training are therefore blocked. The missing environment must not be reconstructed from assumptions or from unavailable VitalDB tracks.
-
-## Frozen Predictive Input
+## Legacy Frozen Predictive Input
 
 The predictive candidate is an ordered six-step history sampled every 10 seconds over 60 seconds:
 
 `bis`, `bis_sqi`, `ppf_rate`, `ppf_volume`, `ppf_cp`, `rftn_volume`, `bis_slope`
 
-Its future-BIS horizon is 30 seconds. Static covariates and train-fitted preprocessing are defined in `data/modeling/full/dataset_metadata.json` and `data/modeling/full/preprocessing.pkl`. Missing values must use the saved train-fitted preprocessing and aligned observation mask. This is a predictive representation, not an RL-optimal state.
+Its future-BIS horizon is 30 seconds. Static covariates and train-fitted preprocessing are defined in `data/modeling/full/dataset_metadata.json` and `data/modeling/full/preprocessing.pkl`. Missing values use the saved train-fitted preprocessing and aligned observation mask. This is a legacy exploratory representation, not an RL-optimal or final selected state. Its prior rankings and `strict_consensus` result must not be reused for the simulator-compatible selection.
+
+## Current Main Handoff
+
+For end-to-end consistency, the final prediction feature universe is restricted to
+variables that can also be generated causally by the reconstructed PK-PD control
+simulator. The new dataset lives under `data/modeling/simulator_compatible`, uses
+`bis_delta_10s` for an exact 10-second BIS change, reuses the frozen patient split,
+fits preprocessing on train only, and seals test summaries during selection.
 
 ## Control-Aware State Rule
 

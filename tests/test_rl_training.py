@@ -318,7 +318,7 @@ def test_all_and_attention_raw_information_and_shapes_are_identical() -> None:
     right, _ = attention_env.reset(seed=1)
     for key in left:
         np.testing.assert_array_equal(left[key], right[key])
-    assert left["history"].shape == (6, 13)
+    assert left["history"].shape == (6, len(ALL_SUPPORTED_FEATURES))
     assert left["static"].shape == (4,)
     assert left["target_bis"].shape == (1,)
 

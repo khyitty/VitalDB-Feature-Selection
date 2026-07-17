@@ -18,7 +18,7 @@ class HistoryRecord:
     time_seconds: float
     bis: float
     noiseless_bis: float
-    bis_slope: float
+    bis_delta_10s: float
     bis_target_error: float
     propofol_rate_mg_per_min: float
     propofol_interval_dose_mg: float
@@ -123,11 +123,11 @@ class HistoryBuffer:
         window_start: HistoryRecord | None,
     ) -> HistoryRecord:
         if previous is None:
-            bis_slope = 0.0
+            bis_delta_10s = 0.0
             propofol_interval = 0.0
             remifentanil_interval = 0.0
         else:
-            bis_slope = state.observed_bis - previous.bis
+            bis_delta_10s = state.observed_bis - previous.bis
             propofol_interval = (
                 state.propofol.cumulative_dose - previous.propofol_cumulative_dose_mg
             )
@@ -152,7 +152,7 @@ class HistoryBuffer:
                 state.time_seconds,
                 state.observed_bis,
                 state.noiseless_bis,
-                bis_slope,
+                bis_delta_10s,
                 state.observed_bis - target_bis,
                 state.propofol_rate_mg_per_min,
                 propofol_interval,

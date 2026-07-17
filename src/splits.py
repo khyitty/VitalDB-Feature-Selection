@@ -83,3 +83,30 @@ def save_case_splits(splits: CaseSplits, output_dir: Path) -> None:
             split_dir / f"{split_name}_cases.csv", index=False
         )
 
+
+def load_case_splits(split_dir: Path, selected_case_ids: Iterable[int]) -> CaseSplits:
+    """Load an existing split assignment and restrict it to selected eligible cases."""
+
+    selected = {int(case_id) for case_id in selected_case_ids}
+    values: dict[str, tuple[int, ...]] = {}
+    for split_name in ("train", "val", "test"):
+        path = split_dir / f"{split_name}_cases.csv"
+        if not path.is_file():
+            raise FileNotFoundError(f"Reference split file is missing: {path}")
+        frame = pd.read_csv(path)
+        if list(frame.columns) != ["caseid"]:
+            raise ValueError(f"Reference split file must contain only caseid: {path}")
+        values[split_name] = tuple(
+            int(value) for value in frame["caseid"] if int(value) in selected
+        )
+    splits = CaseSplits(**values)
+    splits.assert_disjoint()
+    assigned = set().union(*map(set, splits.as_dict().values()))
+    if assigned != selected:
+        raise ValueError(
+            "Reference splits do not contain every selected eligible case; "
+            f"missing={sorted(selected - assigned)} extra={sorted(assigned - selected)}."
+        )
+    if any(not case_ids for case_ids in splits.as_dict().values()):
+        raise ValueError("Reference split restriction produced an empty split.")
+    return splits

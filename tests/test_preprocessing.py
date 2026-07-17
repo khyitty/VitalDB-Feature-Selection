@@ -2,6 +2,7 @@
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from src.preprocessing import (
     FeatureSpec,
@@ -10,6 +11,7 @@ from src.preprocessing import (
     fit_preprocessor,
     resample_cases,
 )
+from src.prediction_feature_profiles import SIMULATOR_COMPATIBLE_PROFILE
 
 
 def test_resampling_never_combines_cases_and_uses_feature_aggregation_rules() -> None:
@@ -96,3 +98,65 @@ def test_bis_slope_does_not_bridge_irregular_gaps() -> None:
     assert np.isnan(result.loc[2, "bis_slope"])
     assert result["bis_error"].tolist() == [-10.0, 0.0, 30.0]
 
+
+def test_simulator_compatible_derivations_use_explicit_units_and_60s_window() -> None:
+    frame = pd.DataFrame(
+        {
+            "caseid": [1] * 8,
+            "timestamp": list(range(0, 80, 10)),
+            "bis": np.arange(40.0, 56.0, 2.0),
+            "__ppf20_rate_ml_per_hour": [3.0] * 8,
+            "__ppf20_volume_ml": np.arange(8.0),
+            "__rftn20_rate_ml_per_hour": [6.0] * 8,
+            "__rftn20_volume_ml": np.arange(8.0) * 0.5,
+        }
+    )
+
+    result = add_derived_features(
+        frame, interval_seconds=10, feature_profile=SIMULATOR_COMPATIBLE_PROFILE
+    )
+
+    assert result.loc[1, "bis_delta_10s"] == 2.0
+    assert result.loc[1, "bis_target_error"] == -8.0
+    assert result["propofol_rate_mg_per_min"].eq(1.0).all()
+    assert result["remifentanil_rate_micrograms_per_min"].eq(2.0).all()
+    assert result.loc[0, "propofol_recent_dose_mg"] == 0.0
+    assert result.loc[1, "propofol_recent_dose_mg"] == 20.0
+    assert result.loc[6, "propofol_cumulative_dose_mg"] == 120.0
+    assert result.loc[6, "propofol_recent_dose_mg"] == 120.0
+    assert result.loc[6, "remifentanil_recent_dose_micrograms"] == 60.0
+
+
+def test_simulator_compatible_profile_rejects_non_decision_interval() -> None:
+    frame = pd.DataFrame(
+        {
+            "caseid": [1],
+            "timestamp": [0],
+            "bis": [50.0],
+        }
+    )
+    with pytest.raises(ValueError, match="10-second sampling interval"):
+        add_derived_features(
+            frame,
+            interval_seconds=5,
+            feature_profile=SIMULATOR_COMPATIBLE_PROFILE,
+        )
+
+
+def test_simulator_compatible_cumulative_dose_records_and_handles_pump_resets() -> None:
+    frame = pd.DataFrame(
+        {
+            "caseid": [1, 1, 1],
+            "timestamp": [0, 10, 20],
+            "bis": [50.0, 49.0, 48.0],
+            "__ppf20_rate_ml_per_hour": [3.0, 3.0, 3.0],
+            "__ppf20_volume_ml": [1.0, 2.0, 0.0],
+            "__rftn20_rate_ml_per_hour": [1.0, 1.0, 1.0],
+            "__rftn20_volume_ml": [0.0, 0.1, 0.2],
+        }
+    )
+    result = add_derived_features(
+        frame, 10, feature_profile=SIMULATOR_COMPATIBLE_PROFILE
+    )
+    assert result["__propofol_pump_reset"].tolist() == [False, False, True]
+    assert result["propofol_cumulative_dose_mg"].tolist() == [0.0, 20.0, 20.0]

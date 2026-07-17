@@ -14,6 +14,9 @@ from .observation import FlattenObservationAdapter, ScaledFlattenObservationAdap
 from .schedules import ConstantTargetSchedule, PiecewiseTargetSchedule, TargetSegment
 from .state_adapters import STATE_PROFILES, state_profile_registry
 from .state_manifests import (
+    END_TO_END_DYNAMIC_FEATURES,
+    END_TO_END_FEATURES,
+    END_TO_END_STATIC_FEATURES,
     FEATURE_REGISTRY,
     PendingStateSelectionError,
     StateManifestError,
@@ -25,6 +28,9 @@ __all__ = [
     "ConstantTargetSchedule",
     "EnvironmentConfig",
     "FEATURE_REGISTRY",
+    "END_TO_END_DYNAMIC_FEATURES",
+    "END_TO_END_STATIC_FEATURES",
+    "END_TO_END_FEATURES",
     "FlattenObservationAdapter",
     "PatientCohort",
     "PendingStateSelectionError",

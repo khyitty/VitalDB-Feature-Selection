@@ -8,6 +8,12 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
+from src.prediction_feature_profiles import (
+    LEGACY_PHYSIOLOGICAL_PROFILE,
+    SIMULATOR_COMPATIBLE_PROFILE,
+)
+from src.rl_env.state_manifests import FEATURE_REGISTRY
+
 
 @dataclass(frozen=True)
 class FeatureSpec:
@@ -20,9 +26,10 @@ class FeatureSpec:
     categorical: bool = False
     required: bool = False
     derived: bool = False
+    include_in_model: bool = True
 
 
-FEATURE_SPECS: tuple[FeatureSpec, ...] = (
+LEGACY_PHYSIOLOGICAL_FEATURE_SPECS: tuple[FeatureSpec, ...] = (
     FeatureSpec("BIS", "bis", "dynamic", "median", required=True),
     FeatureSpec("SQI", "bis_sqi", "dynamic", "median"),
     FeatureSpec("HR", "hr", "dynamic", "median"),
@@ -48,6 +55,113 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
     FeatureSpec("BIS", "bis_slope", "dynamic", "derived_after_resampling", derived=True),
     FeatureSpec("BIS", "bis_error", "dynamic", "derived_after_resampling", derived=True),
 )
+
+# Backward-compatible name for immutable physiological-inclusive exploratory code.
+FEATURE_SPECS = LEGACY_PHYSIOLOGICAL_FEATURE_SPECS
+
+SIMULATOR_COMPATIBLE_FEATURE_SPECS: tuple[FeatureSpec, ...] = (
+    FeatureSpec("BIS", "bis", "dynamic", "median", required=True),
+    FeatureSpec(
+        "PPF_RATE",
+        "__ppf20_rate_ml_per_hour",
+        "source_only",
+        "last",
+        required=True,
+        include_in_model=False,
+    ),
+    FeatureSpec(
+        "PPF_VOL",
+        "__ppf20_volume_ml",
+        "source_only",
+        "last",
+        required=True,
+        include_in_model=False,
+    ),
+    FeatureSpec(
+        "RFTN_RATE",
+        "__rftn20_rate_ml_per_hour",
+        "source_only",
+        "last",
+        required=True,
+        include_in_model=False,
+    ),
+    FeatureSpec(
+        "RFTN_VOL",
+        "__rftn20_volume_ml",
+        "source_only",
+        "last",
+        required=True,
+        include_in_model=False,
+    ),
+    FeatureSpec("age", "age_years", "static", "constant", required=True),
+    FeatureSpec(
+        "sex_male",
+        "sex_male",
+        "static",
+        "constant",
+        categorical=True,
+        required=True,
+    ),
+    FeatureSpec("height", "height_cm", "static", "constant", required=True),
+    FeatureSpec("weight", "weight_kg", "static", "constant", required=True),
+    FeatureSpec("BIS", "bis_delta_10s", "dynamic", "derived_after_resampling", derived=True),
+    FeatureSpec("BIS", "bis_target_error", "dynamic", "derived_after_resampling", derived=True),
+    FeatureSpec(
+        "PPF_RATE",
+        "propofol_rate_mg_per_min",
+        "dynamic",
+        "derived_unit_conversion",
+        derived=True,
+    ),
+    FeatureSpec(
+        "PPF_VOL",
+        "propofol_recent_dose_mg",
+        "dynamic",
+        "derived_causal_60s_difference",
+        derived=True,
+    ),
+    FeatureSpec(
+        "PPF_VOL",
+        "propofol_cumulative_dose_mg",
+        "dynamic",
+        "derived_from_profile_start",
+        derived=True,
+    ),
+    FeatureSpec(
+        "RFTN_RATE",
+        "remifentanil_rate_micrograms_per_min",
+        "dynamic",
+        "derived_unit_conversion",
+        derived=True,
+    ),
+    FeatureSpec(
+        "RFTN_VOL",
+        "remifentanil_recent_dose_micrograms",
+        "dynamic",
+        "derived_causal_60s_difference",
+        derived=True,
+    ),
+    FeatureSpec(
+        "RFTN_VOL",
+        "remifentanil_cumulative_dose_micrograms",
+        "dynamic",
+        "derived_from_profile_start",
+        derived=True,
+    ),
+)
+
+PROPOFOL_20_CONCENTRATION_MG_PER_ML = 20.0
+REMIFENTANIL_20_CONCENTRATION_MICROGRAMS_PER_ML = 20.0
+
+
+def feature_specs_for_profile(profile_name: str) -> tuple[FeatureSpec, ...]:
+    """Return the exact immutable feature specs for one dataset profile."""
+
+    if profile_name == SIMULATOR_COMPATIBLE_PROFILE:
+        return SIMULATOR_COMPATIBLE_FEATURE_SPECS
+    if profile_name == LEGACY_PHYSIOLOGICAL_PROFILE:
+        return LEGACY_PHYSIOLOGICAL_FEATURE_SPECS
+    raise ValueError(f"Unknown prediction feature profile: {profile_name!r}")
 
 
 @dataclass(frozen=True)
@@ -146,17 +260,129 @@ def resample_cases(
     return resampled
 
 
-def add_derived_features(frame: pd.DataFrame, interval_seconds: int) -> pd.DataFrame:
-    """Add causal BIS slope and BIS error after resampling."""
+def _reset_aware_cumulative(
+    frame: pd.DataFrame,
+    source_name: str,
+    concentration: float,
+    output_name: str,
+) -> tuple[pd.Series, pd.Series]:
+    """Accumulate non-negative volume increments across explicit causal pump resets."""
+
+    cumulative = pd.Series(np.nan, index=frame.index, dtype=float)
+    reset = pd.Series(False, index=frame.index, dtype=bool)
+    for _, case in frame.groupby("caseid", sort=False):
+        total_volume = 0.0
+        previous_volume: float | None = None
+        for index, raw_value in case[source_name].items():
+            if pd.isna(raw_value):
+                continue
+            value = float(raw_value)
+            if value < 0.0:
+                raise ValueError(f"Negative cumulative pump volume is unsupported: {source_name}")
+            if previous_volume is None:
+                increment = 0.0
+            elif value + 1e-6 >= previous_volume:
+                increment = max(value - previous_volume, 0.0)
+            else:
+                reset.loc[index] = True
+                increment = value
+            total_volume += increment
+            cumulative.loc[index] = total_volume * concentration
+            previous_volume = value
+    if bool((cumulative.groupby(frame["caseid"], sort=False).diff().dropna() < -1e-6).any()):
+        raise AssertionError(f"Reset-aware cumulative reconstruction decreased: {output_name}")
+    return cumulative, reset
+
+
+def _causal_recent_difference(
+    frame: pd.DataFrame,
+    cumulative_name: str,
+    *,
+    window_seconds: int,
+) -> pd.Series:
+    """Difference cumulative dose from exactly 60 seconds ago or the case start."""
+
+    recent = pd.Series(np.nan, index=frame.index, dtype=float)
+    for _, case in frame.groupby("caseid", sort=False):
+        timestamps = case["timestamp"].to_numpy(dtype=np.int64)
+        case_start = int(timestamps[0])
+        reference_timestamps = np.maximum(timestamps - window_seconds, case_start)
+        cumulative = case[cumulative_name]
+        by_timestamp = pd.Series(cumulative.to_numpy(), index=timestamps)
+        reference = by_timestamp.reindex(reference_timestamps).to_numpy(dtype=float)
+        recent.loc[case.index] = cumulative.to_numpy(dtype=float) - reference
+    return recent
+
+
+def add_derived_features(
+    frame: pd.DataFrame,
+    interval_seconds: int,
+    feature_profile: str = LEGACY_PHYSIOLOGICAL_PROFILE,
+) -> pd.DataFrame:
+    """Add causal profile-specific transformations after fixed-interval resampling."""
 
     result = frame.copy()
     grouped = result.groupby("caseid", sort=False)
     previous_gap = grouped["timestamp"].diff()
     bis_difference = grouped["bis"].diff()
-    result["bis_slope"] = (bis_difference / interval_seconds).where(
-        previous_gap == interval_seconds
+    if feature_profile == LEGACY_PHYSIOLOGICAL_PROFILE:
+        result["bis_slope"] = (bis_difference / interval_seconds).where(
+            previous_gap == interval_seconds
+        )
+        result["bis_error"] = result["bis"] - 50.0
+        return result
+    if feature_profile != SIMULATOR_COMPATIBLE_PROFILE:
+        raise ValueError(f"Unknown prediction feature profile: {feature_profile!r}")
+    if interval_seconds != 10:
+        raise ValueError(
+            "The simulator-compatible profile requires a 10-second sampling interval."
+        )
+
+    result["bis_delta_10s"] = bis_difference.where(previous_gap == interval_seconds)
+    result["bis_target_error"] = result["bis"] - 50.0
+    for source in ("__ppf20_rate_ml_per_hour", "__rftn20_rate_ml_per_hour"):
+        if bool((result[source].dropna() < 0.0).any()):
+            raise ValueError(f"Negative pump rates are unsupported: {source}")
+    result["propofol_rate_mg_per_min"] = (
+        result["__ppf20_rate_ml_per_hour"]
+        * PROPOFOL_20_CONCENTRATION_MG_PER_ML
+        / 60.0
     )
-    result["bis_error"] = result["bis"] - 50.0
+    result["remifentanil_rate_micrograms_per_min"] = (
+        result["__rftn20_rate_ml_per_hour"]
+        * REMIFENTANIL_20_CONCENTRATION_MICROGRAMS_PER_ML
+        / 60.0
+    )
+    (
+        result["propofol_cumulative_dose_mg"],
+        result["__propofol_pump_reset"],
+    ) = _reset_aware_cumulative(
+        result,
+        "__ppf20_volume_ml",
+        PROPOFOL_20_CONCENTRATION_MG_PER_ML,
+        "propofol_cumulative_dose_mg",
+    )
+    (
+        result["remifentanil_cumulative_dose_micrograms"],
+        result["__remifentanil_pump_reset"],
+    ) = _reset_aware_cumulative(
+        result,
+        "__rftn20_volume_ml",
+        REMIFENTANIL_20_CONCENTRATION_MICROGRAMS_PER_ML,
+        "remifentanil_cumulative_dose_micrograms",
+    )
+    for cumulative_name, recent_name in (
+        ("propofol_cumulative_dose_mg", "propofol_recent_dose_mg"),
+        (
+            "remifentanil_cumulative_dose_micrograms",
+            "remifentanil_recent_dose_micrograms",
+        ),
+    ):
+        result[recent_name] = _causal_recent_difference(
+            result,
+            cumulative_name,
+            window_seconds=60,
+        )
     return result
 
 
@@ -185,7 +411,28 @@ def build_feature_manifest(
                 "aggregation_rule": spec.aggregation,
                 "percentage_missing_before_imputation": missing_pct,
                 "included": included,
+                "included_in_model": included and spec.include_in_model,
                 "exclusion_reason": "" if included else exclusions.get(spec.name, "excluded"),
+                "units": (
+                    FEATURE_REGISTRY[spec.name].units
+                    if spec.name in FEATURE_REGISTRY
+                    else "legacy_or_source_unit"
+                ),
+                "temporal_window_seconds": (
+                    FEATURE_REGISTRY[spec.name].temporal_window_seconds
+                    if spec.name in FEATURE_REGISTRY
+                    else None
+                ),
+                "simulator_supported": (
+                    FEATURE_REGISTRY[spec.name].simulator_supported
+                    if spec.name in FEATURE_REGISTRY
+                    else False
+                ),
+                "end_to_end_eligible": (
+                    FEATURE_REGISTRY[spec.name].end_to_end_eligible
+                    if spec.name in FEATURE_REGISTRY
+                    else False
+                ),
             }
         )
     return pd.DataFrame(rows)
@@ -262,4 +509,3 @@ def apply_preprocessor(
             values = (values - stats.training_mean) / stats.normalization_scale
         result[feature_name] = values.astype(float)
     return result
-

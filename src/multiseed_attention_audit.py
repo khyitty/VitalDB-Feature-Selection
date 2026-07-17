@@ -1,4 +1,4 @@
-"""Paired multiseed performance and attention-stability aggregation."""
+"""Legacy multiseed audit for the physiological-inclusive prediction universe."""
 
 from __future__ import annotations
 
@@ -1061,6 +1061,7 @@ def run_multiseed_attention_audit(
     }
     dump_json(paired_payload, output_dir / "attention_vs_gru.json")
     result = {
+        "scientific_role": "legacy_physiological_exploratory_not_final_selection",
         "runtime_sanity": runtime_sanity,
         "run_integrity": integrity,
         "performance": {

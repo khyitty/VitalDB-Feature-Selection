@@ -88,8 +88,12 @@ def _synthetic_raw_cases() -> pd.DataFrame:
                     "HR": 60.0 + case_id % 3,
                     "PPF_RATE": float(timestamp // 20),
                     "PPF_VOL": float(timestamp),
+                    "RFTN_RATE": float(timestamp // 40),
+                    "RFTN_VOL": float(timestamp) / 2.0,
                     "age": float(30 + case_id % 10),
                     "sex_male": case_id % 2,
+                    "height": 165.0,
+                    "weight": 65.0,
                 }
             )
     return pd.DataFrame(rows)
@@ -116,6 +120,15 @@ def test_end_to_end_synthetic_pipeline_saves_reloadable_ordered_arrays(tmp_path:
     assert metadata["static_feature_names"] == list(result.static_features)
     assert metadata["history_steps"] == 6
     assert metadata["prediction_horizon_seconds"] == 30
+    assert metadata["feature_profile"] == "simulator_compatible"
+    assert metadata["preprocessing_fit_split"] == "train_only"
+    assert metadata["test_results_inspected"] is False
+    assert metadata["test_target_summary_sealed"] is True
+    report = json.loads((result.output_dir / "dataset_report.json").read_text())
+    assert set(report["bis_target_statistics"]) == {"train", "val"}
+    assert set(report["missingness_percentage_by_feature_and_split"]) == {
+        "train",
+        "val",
+    }
     assert (result.output_dir / "preprocessing.pkl").exists()
     assert (result.output_dir / "feature_manifest.csv").exists()
-

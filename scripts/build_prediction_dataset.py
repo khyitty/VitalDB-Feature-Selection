@@ -13,16 +13,32 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.config import PipelineConfig  # noqa: E402
 from src.io import build_prediction_dataset  # noqa: E402
+from src.prediction_feature_profiles import (  # noqa: E402
+    FEATURE_PROFILES,
+    SIMULATOR_COMPATIBLE_PROFILE,
+)
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse the mutually exclusive pilot/full build mode."""
 
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--pilot", action="store_true", help="Use the first 10 eligible cases.")
     mode.add_argument("--full", action="store_true", help="Use all eligible cases.")
-    return parser.parse_args()
+    parser.add_argument(
+        "--feature-profile",
+        choices=tuple(FEATURE_PROFILES),
+        default=SIMULATOR_COMPATIBLE_PROFILE,
+    )
+    parser.add_argument("--output-dir", type=Path)
+    parser.add_argument(
+        "--split-reference-dir",
+        type=Path,
+        default=Path("data/modeling/full/splits"),
+        help="Reuse the frozen case assignment; required for the main rerun.",
+    )
+    return parser.parse_args(argv)
 
 
 def main() -> None:
@@ -30,8 +46,28 @@ def main() -> None:
 
     args = parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-    output_dir = Path("data/modeling/pilot" if args.pilot else "data/modeling/full")
-    config = PipelineConfig(output_dir=output_dir)
+    mode = "pilot" if args.pilot else "full"
+    profile_root = (
+        "simulator_compatible"
+        if args.feature_profile == SIMULATOR_COMPATIBLE_PROFILE
+        else "legacy_physiological_exploratory"
+    )
+    output_dir = args.output_dir or Path("data/modeling") / profile_root / mode
+    if output_dir.resolve() in {
+        Path("data/modeling/pilot").resolve(),
+        Path("data/modeling/full").resolve(),
+    }:
+        raise ValueError("Refusing to overwrite prior physiological-inclusive datasets.")
+    split_reference = (
+        args.split_reference_dir
+        if args.feature_profile == SIMULATOR_COMPATIBLE_PROFILE
+        else None
+    )
+    config = PipelineConfig(
+        output_dir=output_dir,
+        feature_profile=args.feature_profile,
+        split_reference_dir=split_reference,
+    )
     result = build_prediction_dataset(config, max_cases=10 if args.pilot else None)
 
     print(f"Dynamic features ({len(result.dynamic_features)}): {', '.join(result.dynamic_features)}")
@@ -40,6 +76,9 @@ def main() -> None:
     print(f"Window counts: {result.window_counts}")
     for split_name in ("train", "val", "test"):
         print(f"{split_name} tensor shapes: {result.tensor_shapes[split_name]}")
+        if split_name not in result.prevalence:
+            print(f"{split_name} target prevalence: sealed")
+            continue
         rates = result.prevalence[split_name]
         print(
             f"{split_name} prevalence: BIS<40={rates['low_bis']:.4f}, "

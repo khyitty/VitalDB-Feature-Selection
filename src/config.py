@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from src.prediction_feature_profiles import SIMULATOR_COMPATIBLE_PROFILE
+
 
 @dataclass(frozen=True)
 class PipelineConfig:
@@ -16,7 +18,9 @@ class PipelineConfig:
     """
 
     input_path: Path = Path("data/processed/vitaldb_clean_100cases.csv")
-    output_dir: Path = Path("data/modeling/pilot")
+    output_dir: Path = Path("data/modeling/simulator_compatible/pilot")
+    feature_profile: str = SIMULATOR_COMPATIBLE_PROFILE
+    split_reference_dir: Path | None = None
     seed: int = 42
     train_fraction: float = 0.70
     val_fraction: float = 0.15
@@ -37,10 +41,17 @@ class PipelineConfig:
             raise ValueError("History window must be divisible by the sampling interval.")
         if self.prediction_horizon_seconds % self.resampling_interval_seconds != 0:
             raise ValueError("Prediction horizon must be divisible by the sampling interval.")
+        if (
+            self.feature_profile == SIMULATOR_COMPATIBLE_PROFILE
+            and self.resampling_interval_seconds != 10
+        ):
+            raise ValueError(
+                "The simulator-compatible profile fixes resampling at the 10-second "
+                "RL action interval."
+            )
 
     @property
     def history_steps(self) -> int:
         """Return the number of observations in each history window."""
 
         return self.history_window_seconds // self.resampling_interval_seconds
-

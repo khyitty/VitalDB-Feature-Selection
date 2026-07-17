@@ -17,16 +17,21 @@ import pandas as pd
 
 from src.config import PipelineConfig
 from src.preprocessing import (
-    FEATURE_SPECS,
-    FeatureSpec,
     add_derived_features,
     apply_preprocessor,
     build_feature_manifest,
     fit_preprocessor,
+    feature_specs_for_profile,
     resample_cases,
     resolve_feature_specs,
 )
-from src.splits import CaseSplits, save_case_splits, split_case_ids
+from src.prediction_feature_profiles import (
+    SIMULATOR_COMPATIBLE_PROFILE,
+    get_prediction_feature_profile,
+    prediction_rl_definition_rows,
+    validate_simulator_compatible_features,
+)
+from src.splits import load_case_splits, save_case_splits, split_case_ids
 from src.windows import WindowDataset, build_windows, eligible_case_ids
 
 LOGGER = logging.getLogger(__name__)
@@ -156,17 +161,20 @@ def build_prediction_dataset_from_frame(
     np.random.seed(config.seed)
     output_dir = config.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
+    profile = get_prediction_feature_profile(config.feature_profile)
 
     frame = input_frame.copy()
     input_rows = int(len(frame))
     input_cases = int(frame["caseid"].nunique())
     input_irregular_gaps = _count_irregular_gaps(frame, "time_sec", expected_interval=1)
 
-    included_specs, exclusions = resolve_feature_specs(frame)
+    feature_specs = feature_specs_for_profile(config.feature_profile)
+    included_specs, exclusions = resolve_feature_specs(frame, feature_specs)
     source_specs = [spec for spec in included_specs if not spec.derived]
     resampled_all = add_derived_features(
         resample_cases(frame, source_specs, config.resampling_interval_seconds),
         config.resampling_interval_seconds,
+        config.feature_profile,
     )
     eligible_ids = eligible_case_ids(
         resampled_all,
@@ -187,20 +195,27 @@ def build_prediction_dataset_from_frame(
 
     selected = resampled_all[resampled_all["caseid"].isin(selected_ids)].copy()
     selected = selected.sort_values(["caseid", "timestamp"], kind="stable").reset_index(drop=True)
-    manifest = build_feature_manifest(
-        FEATURE_SPECS, included_specs, exclusions, selected
-    )
-    manifest.to_csv(output_dir / "feature_manifest.csv", index=False)
-
-    dynamic_specs = [spec for spec in included_specs if spec.feature_class == "dynamic"]
-    static_specs = [spec for spec in included_specs if spec.feature_class == "static"]
+    dynamic_specs = [
+        spec
+        for spec in included_specs
+        if spec.feature_class == "dynamic" and spec.include_in_model
+    ]
+    static_specs = [
+        spec
+        for spec in included_specs
+        if spec.feature_class == "static" and spec.include_in_model
+    ]
     dynamic_features = tuple(spec.name for spec in dynamic_specs)
     static_features = tuple(spec.name for spec in static_specs)
 
-    splits = split_case_ids(
-        selected_ids,
-        seed=config.seed,
-        fractions=(config.train_fraction, config.val_fraction, config.test_fraction),
+    splits = (
+        load_case_splits(config.split_reference_dir, selected_ids)
+        if config.split_reference_dir is not None
+        else split_case_ids(
+            selected_ids,
+            seed=config.seed,
+            fractions=(config.train_fraction, config.val_fraction, config.test_fraction),
+        )
     )
     save_case_splits(splits, output_dir)
     LOGGER.info(
@@ -214,6 +229,10 @@ def build_prediction_dataset_from_frame(
         name: selected[selected["caseid"].isin(case_ids)].copy()
         for name, case_ids in splits.as_dict().items()
     }
+    manifest = build_feature_manifest(
+        feature_specs, included_specs, exclusions, split_frames["train"]
+    )
+    manifest.to_csv(output_dir / "feature_manifest.csv", index=False)
     artifact = fit_preprocessor(split_frames["train"], dynamic_specs, static_specs)
     with (output_dir / "preprocessing.pkl").open("wb") as handle:
         pickle.dump(artifact, handle)
@@ -246,27 +265,42 @@ def build_prediction_dataset_from_frame(
         )
         datasets[split_name] = dataset
         _save_window_dataset(dataset, output_dir, split_name)
-        _warn_empty_extreme_classes(split_name, dataset)
+        if not (
+            config.feature_profile == SIMULATOR_COMPATIBLE_PROFILE
+            and split_name == "test"
+        ):
+            _warn_empty_extreme_classes(split_name, dataset)
 
     case_counts = {name: len(ids) for name, ids in splits.as_dict().items()}
     window_counts = {name: len(dataset.y_bis) for name, dataset in datasets.items()}
-    target_summaries = {name: _target_summary(dataset) for name, dataset in datasets.items()}
-    all_targets = np.concatenate([dataset.y_bis for dataset in datasets.values()])
-    combined_stub = WindowDataset(
-        X_dynamic=np.empty((0, 0, 0)),
-        X_static=np.empty((0, 0)),
-        observation_mask=np.empty((0, 0, 0), dtype=bool),
-        y_bis=all_targets,
-        y_high_bis=(all_targets > config.high_bis_threshold).astype(np.int8),
-        y_low_bis=(all_targets < config.low_bis_threshold).astype(np.int8),
-        metadata=pd.DataFrame(),
-        windows_removed_missing_future_bis=0,
+    summary_splits = (
+        ("train", "val")
+        if config.feature_profile == SIMULATOR_COMPATIBLE_PROFILE
+        else ("train", "val", "test")
     )
-    target_summaries["all"] = _target_summary(combined_stub)
+    target_summaries = {
+        name: _target_summary(datasets[name]) for name in summary_splits
+    }
+    if config.feature_profile != SIMULATOR_COMPATIBLE_PROFILE:
+        all_targets = np.concatenate([dataset.y_bis for dataset in datasets.values()])
+        combined_stub = WindowDataset(
+            X_dynamic=np.empty((0, 0, 0)),
+            X_static=np.empty((0, 0)),
+            observation_mask=np.empty((0, 0, 0), dtype=bool),
+            y_bis=all_targets,
+            y_high_bis=(all_targets > config.high_bis_threshold).astype(np.int8),
+            y_low_bis=(all_targets < config.low_bis_threshold).astype(np.int8),
+            metadata=pd.DataFrame(),
+            windows_removed_missing_future_bis=0,
+        )
+        target_summaries["all"] = _target_summary(combined_stub)
 
     generation_timestamp = datetime.now(timezone.utc).isoformat()
     input_name = input_label or str(config.input_path)
+    if config.feature_profile == SIMULATOR_COMPATIBLE_PROFILE:
+        validate_simulator_compatible_features(dynamic_features, static_features)
     dataset_metadata = {
+        **profile.as_metadata(),
         "dynamic_feature_names": list(dynamic_features),
         "static_feature_names": list(static_features),
         "history_window_seconds": config.history_window_seconds,
@@ -277,12 +311,85 @@ def build_prediction_dataset_from_frame(
         "split_seed": config.seed,
         "input_file": input_name,
         "generation_timestamp_utc": generation_timestamp,
+        "split_reused_from": (
+            str(config.split_reference_dir.resolve())
+            if config.split_reference_dir is not None
+            else None
+        ),
+        "split_generated_from_seed": config.split_reference_dir is None,
+        "preprocessing_fit_split": "train_only",
+        "feature_selection_split_accessed": False,
+        "test_results_inspected": False,
+        "test_target_summary_sealed": (
+            config.feature_profile == SIMULATOR_COMPATIBLE_PROFILE
+        ),
+        "legacy_physiological_outputs_overwritten": False,
+        "vitaldb_pump_source_contract": (
+            {
+                "propofol": {
+                    "track": "Orchestra/PPF20_RATE and Orchestra/PPF20_VOL",
+                    "source_rate_unit": "mL/hr",
+                    "concentration": "20 mg/mL",
+                    "rate_conversion": "mL/hr * 20 mg/mL / 60 = mg/min",
+                },
+                "remifentanil": {
+                    "track": "Orchestra/RFTN20_RATE and Orchestra/RFTN20_VOL",
+                    "source_rate_unit": "mL/hr",
+                    "concentration": "20 microgram/mL",
+                    "rate_conversion": (
+                        "mL/hr * 20 microgram/mL / 60 = microgram/min"
+                    ),
+                },
+                "official_metadata_url": (
+                    "https://vitaldb.net/dataset/?query=overview"
+                ),
+                "cumulative_dose_policy": (
+                    "Within each case, sum non-negative recorded pump-volume increments. "
+                    "A volume decrease starts a new pump segment and its current volume "
+                    "is added as post-reset delivered volume. Missing readings remain missing."
+                ),
+                "pump_reset_counts": {
+                    "propofol": int(selected["__propofol_pump_reset"].sum()),
+                    "remifentanil": int(selected["__remifentanil_pump_reset"].sum()),
+                },
+            }
+            if config.feature_profile == SIMULATOR_COMPATIBLE_PROFILE
+            else None
+        ),
+        "prediction_rl_feature_definitions": (
+            prediction_rl_definition_rows()
+            if config.feature_profile == SIMULATOR_COMPATIBLE_PROFILE
+            else None
+        ),
+        "excluded_from_main_profile": (
+            {
+                "unsupported_physiology": [
+                    "HR/PLETH_HR",
+                    "blood_pressure",
+                    "SpO2",
+                    "ETCO2",
+                    "respiratory_variables",
+                    "HRV",
+                    "PLETH_waveform_features",
+                    "BIS_SQI",
+                ],
+                "recorded_pkpd_concentrations": (
+                    "PPF_CP/PPF_CE/RFTN_CP/RFTN_CE are not reconstructed by the "
+                    "repository PK-PD simulator in prediction preprocessing."
+                ),
+                "legacy_static_covariates": ["bmi", "asa"],
+            }
+            if config.feature_profile == SIMULATOR_COMPATIBLE_PROFILE
+            else None
+        ),
         "cases_per_split": case_counts,
         "windows_per_split": window_counts,
     }
     _json_dump(dataset_metadata, output_dir / "dataset_metadata.json")
 
     report = {
+        "feature_profile": config.feature_profile,
+        "scientific_role": profile.scientific_role,
         "input_row_count": input_rows,
         "input_case_count": input_cases,
         "eligible_case_count": len(eligible_ids),
@@ -293,7 +400,9 @@ def build_prediction_dataset_from_frame(
         "cases_per_split": case_counts,
         "windows_per_split": window_counts,
         "bis_target_statistics": target_summaries,
-        "missingness_percentage_by_feature_and_split": missingness,
+        "missingness_percentage_by_feature_and_split": {
+            name: missingness[name] for name in summary_splits
+        },
         "windows_removed_due_to_missing_future_bis": {
             name: dataset.windows_removed_missing_future_bis
             for name, dataset in datasets.items()
@@ -301,6 +410,18 @@ def build_prediction_dataset_from_frame(
         "number_of_irregular_timestamp_gaps_detected": input_irregular_gaps,
         "input_irregular_one_second_gaps": input_irregular_gaps,
         "resampled_irregular_ten_second_gaps_by_split": resampled_irregular_gaps,
+        "prior_physiological_inclusive_results_are_legacy": (
+            config.feature_profile == SIMULATOR_COMPATIBLE_PROFILE
+        ),
+        "final_selected_feature_set_decided": False,
+        "pump_reset_counts": (
+            {
+                "propofol": int(selected["__propofol_pump_reset"].sum()),
+                "remifentanil": int(selected["__remifentanil_pump_reset"].sum()),
+            }
+            if config.feature_profile == SIMULATOR_COMPATIBLE_PROFILE
+            else None
+        ),
     }
     _json_dump(report, output_dir / "dataset_report.json")
 
@@ -324,6 +445,7 @@ def build_prediction_dataset_from_frame(
             ),
         }
         for name, dataset in datasets.items()
+        if name in summary_splits
     }
     return BuildResult(
         output_dir=output_dir,

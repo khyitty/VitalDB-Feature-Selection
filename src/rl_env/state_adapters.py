@@ -26,7 +26,7 @@ STATIC_UNITS = ("year", "binary", "cm", "kg")
 
 ORIGINAL_YUN_FEATURES = (
     "bis",
-    "bis_slope",
+    "bis_delta_10s",
     "bis_target_error",
     "propofol_rate_mg_per_min",
     "propofol_recent_dose_mg",
@@ -36,23 +36,19 @@ ORIGINAL_YUN_FEATURES = (
 
 ALL_SUPPORTED_FEATURES = (
     "bis",
-    "bis_slope",
+    "bis_delta_10s",
     "bis_target_error",
     "propofol_rate_mg_per_min",
     "propofol_recent_dose_mg",
     "propofol_cumulative_dose_mg",
-    "propofol_cp_mg_per_l",
-    "propofol_ce_mg_per_l",
     "remifentanil_rate_micrograms_per_min",
     "remifentanil_recent_dose_micrograms",
     "remifentanil_cumulative_dose_micrograms",
-    "remifentanil_cp_micrograms_per_l",
-    "remifentanil_ce_micrograms_per_l",
 )
 
 SELECTED_CONTROL_AWARE_FEATURES = (
     "bis",
-    "bis_slope",
+    "bis_delta_10s",
     "bis_target_error",
     "propofol_rate_mg_per_min",
     "propofol_recent_dose_mg",
@@ -151,7 +147,7 @@ STATE_PROFILES: dict[str, StateProfile] = {
     "all_supported": StateProfile(
         "all_supported",
         ALL_SUPPORTED_FEATURES,
-        purpose="All non-latent simulator-supported control observations.",
+        purpose="All end-to-end prediction/simulator-compatible control observations.",
     ),
     "attention_ready": StateProfile(
         "attention_ready",

@@ -167,7 +167,7 @@ def test_original_reconstructed_ordered_schema() -> None:
 
 def test_all_supported_ordered_schema() -> None:
     assert STATE_PROFILES["all_supported"].dynamic_feature_names == ALL_SUPPORTED_FEATURES
-    assert ALL_SUPPORTED_FEATURES[0:3] == ("bis", "bis_slope", "bis_target_error")
+    assert ALL_SUPPORTED_FEATURES[0:3] == ("bis", "bis_delta_10s", "bis_target_error")
 
 
 def test_attention_ready_history_and_static_shapes() -> None:

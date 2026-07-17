@@ -1,6 +1,10 @@
 """Tests for deterministic patient-level splitting."""
 
-from src.splits import split_case_ids
+from pathlib import Path
+
+import pandas as pd
+
+from src.splits import load_case_splits, split_case_ids
 
 
 def test_case_splits_are_disjoint_and_deterministic() -> None:
@@ -21,3 +25,16 @@ def test_smallest_supported_split_keeps_all_three_sets_nonempty() -> None:
 
     assert len(splits.train) == len(splits.val) == len(splits.test) == 1
 
+
+def test_reference_split_is_reused_exactly_without_reassignment(tmp_path: Path) -> None:
+    expected = {"train": [7, 1], "val": [3], "test": [9]}
+    for name, case_ids in expected.items():
+        pd.DataFrame({"caseid": case_ids}).to_csv(
+            tmp_path / f"{name}_cases.csv", index=False
+        )
+
+    splits = load_case_splits(tmp_path, [1, 3, 7, 9])
+
+    assert splits.train == (7, 1)
+    assert splits.val == (3,)
+    assert splits.test == (9,)

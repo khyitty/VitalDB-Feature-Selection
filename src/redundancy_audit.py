@@ -1,4 +1,4 @@
-"""Controlled diagnostic for removing deterministic ``bis_error`` redundancy."""
+"""Legacy exploratory diagnostic for the physiological-inclusive feature universe."""
 
 from __future__ import annotations
 
@@ -57,6 +57,7 @@ MODEL_NAMES = (
     "reduced_gru_17",
     "reduced_attention_17",
 )
+SCIENTIFIC_ROLE = "legacy_physiological_exploratory_not_final_selection"
 
 
 def verify_bis_error_redundancy(dataset_dir: Path) -> dict[str, Any]:

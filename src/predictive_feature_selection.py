@@ -1,4 +1,4 @@
-"""Train-only patient-grouped predictive feature selection for future BIS."""
+"""Legacy train-only selector for the physiological-inclusive feature universe."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ from sklearn.linear_model import ElasticNet
 from sklearn.preprocessing import StandardScaler
 
 from src.preprocessing import PreprocessingArtifact
+from src.prediction_feature_profiles import SIMULATOR_COMPATIBLE_PROFILE
 from src.redundancy_audit import FEATURE_GROUPS, REDUCED_FEATURES
 
 matplotlib.use("Agg")
@@ -217,6 +218,11 @@ def load_train_selection_data(dataset_dir: Path) -> TrainSelectionData:
     if missing:
         raise FileNotFoundError(f"Train-only modeling artifacts are missing: {missing}")
     metadata = load_json(dataset_dir / "dataset_metadata.json")
+    if metadata.get("feature_profile") == SIMULATOR_COMPATIBLE_PROFILE:
+        raise ValueError(
+            "This Elastic Net/XGBoost selector is legacy exploratory and cannot select "
+            "the final simulator-compatible state. Use the new explicit-attention rerun."
+        )
     dynamic_names = tuple(metadata["dynamic_feature_names"])
     static_names = tuple(metadata["static_feature_names"])
     if DETERMINISTIC_DUPLICATE not in dynamic_names:
@@ -1582,6 +1588,7 @@ def run_predictive_feature_selection(
         + ["selection_manifest.json"]
     )
     manifest = {
+        "scientific_role": "legacy_physiological_exploratory_not_final_selection",
         "analysis_timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "analysis_git_commit": _git_commit(Path(__file__).resolve().parents[1]),
         "configuration": {

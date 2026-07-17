@@ -1,4 +1,4 @@
-"""Validation-only aggregation for paired group-retraining experiments."""
+"""Legacy physiological-inclusive group-retraining aggregation."""
 
 from __future__ import annotations
 
@@ -1170,6 +1170,7 @@ def run_group_retraining_analysis(
         + ["analysis_manifest.json", "validation_analysis_report.md"]
     )
     manifest = {
+        "scientific_role": "legacy_physiological_exploratory_not_final_selection",
         "analysis_timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "analysis_git_commit": _git_commit(Path(__file__).resolve().parents[1]),
         "training_git_commits": training_commits,
