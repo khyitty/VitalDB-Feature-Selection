@@ -20,6 +20,8 @@ class EpisodeMetricsCollector:
         safe_bis_high: float,
         excessive_action_change_threshold_mg_per_min: float,
         propofol_ce_threshold_mg_per_l: float | None,
+        action_low_mg_per_min: float = 0.0,
+        action_high_mg_per_min: float = 12.0,
     ) -> None:
         self.step_duration_seconds = float(step_duration_seconds)
         self.safe_bis_low = float(safe_bis_low)
@@ -28,6 +30,10 @@ class EpisodeMetricsCollector:
             excessive_action_change_threshold_mg_per_min
         )
         self.propofol_ce_threshold_mg_per_l = propofol_ce_threshold_mg_per_l
+        self.action_low_mg_per_min = float(action_low_mg_per_min)
+        self.action_high_mg_per_min = float(action_high_mg_per_min)
+        if self.action_high_mg_per_min <= self.action_low_mg_per_min:
+            raise ValueError("Action metric bounds require low < high.")
         self.reset()
 
     def reset(self) -> None:
@@ -112,6 +118,7 @@ class EpisodeMetricsCollector:
         in_range = (bis >= self.safe_bis_low) & (bis <= self.safe_bis_high)
         below = bis < self.safe_bis_low
         above = bis > self.safe_bis_high
+        below_30 = bis < 30.0
         reentry_time: float | None = None
         previously_outside = False
         for row, safe in zip(self._rows, in_range):
@@ -130,6 +137,13 @@ class EpisodeMetricsCollector:
                 * self.step_duration_seconds
             )
         duration = len(self._rows) * self.step_duration_seconds
+        settling_time: float | None = None
+        for index, row in enumerate(self._rows):
+            if bool(np.all(in_range[index:])):
+                settling_time = float(row["time_seconds"])
+                break
+        at_lower = np.isclose(rates, self.action_low_mg_per_min, atol=1e-6)
+        at_upper = np.isclose(rates, self.action_high_mg_per_min, atol=1e-6)
         return {
             "step_count": len(self._rows),
             "duration_seconds": duration,
@@ -137,15 +151,33 @@ class EpisodeMetricsCollector:
             "fraction_time_in_bis_40_60": float(np.mean(in_range)),
             "bis_target_mae": float(np.mean(np.abs(errors))),
             "bis_target_rmse": float(np.sqrt(np.mean(errors**2))),
+            "integrated_absolute_bis_error": float(
+                np.sum(np.abs(errors)) * self.step_duration_seconds
+            ),
             "bis_below_40_duration_seconds": float(np.sum(below) * self.step_duration_seconds),
+            "fraction_time_bis_below_40": float(np.mean(below)),
             "bis_above_60_duration_seconds": float(np.sum(above) * self.step_duration_seconds),
+            "fraction_time_bis_above_60": float(np.mean(above)),
+            "bis_below_30_duration_seconds": float(
+                np.sum(below_30) * self.step_duration_seconds
+            ),
+            "fraction_time_bis_below_30": float(np.mean(below_30)),
             "maximum_absolute_bis_error": float(np.max(np.abs(errors))),
             "bis_overshoot_max": float(np.max(np.abs(errors))),
             "target_reentry_time_seconds": reentry_time,
+            "induction_settling_time_seconds": settling_time,
+            "induction_settling_definition": (
+                "earliest sampled time after which BIS remains in 40-60 through episode end"
+            ),
             "bis_variability_standard_deviation": float(np.std(bis)),
             "total_propofol_dose_mg": float(np.sum(rates) * self.step_duration_seconds / 60.0),
             "mean_propofol_rate_mg_per_min": float(np.mean(rates)),
             "max_propofol_rate_mg_per_min": float(np.max(rates)),
+            "propofol_rate_standard_deviation_mg_per_min": float(np.std(rates)),
+            "lower_action_saturation_count": int(np.sum(at_lower)),
+            "lower_action_saturation_fraction": float(np.mean(at_lower)),
+            "upper_action_saturation_count": int(np.sum(at_upper)),
+            "upper_action_saturation_fraction": float(np.mean(at_upper)),
             "absolute_action_change_sum": float(np.sum(absolute_changes)),
             "squared_action_change_sum": float(np.sum(squared_changes)),
             "excessive_action_change_count": int(

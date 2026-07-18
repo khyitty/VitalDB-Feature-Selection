@@ -81,6 +81,8 @@ class PropofolControlEnv(gym.Env[dict[str, np.ndarray], np.ndarray]):
             propofol_ce_threshold_mg_per_l=(
                 self.config.propofol_ce_threshold_mg_per_l
             ),
+            action_low_mg_per_min=bounds.low_mg_per_min,
+            action_high_mg_per_min=bounds.high_mg_per_min,
         )
         self._patient: PatientDemographics | None = None
         self._patient_id = "uninitialized"

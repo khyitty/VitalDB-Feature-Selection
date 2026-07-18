@@ -73,6 +73,15 @@ This command runs Gymnasium validation, a random-action rollout, PPO training,
 checkpoint reload, deterministic evaluation, action-clipping diagnostics, and
 failure-safe `run_status.json`. Full scientific training is not started.
 
+The approved non-smoke 3-seed primary-state pilot is separately frozen in
+`configs/ppo_primary_state_pilot.json` and executed by
+`scripts/run_ppo_state_pilot.py`. It uses 102,400 steps per run, validation at
+51,200 and 102,400 steps, seeds 7/42/84, all 15 validation patients, and the same
+common MLP/PPO settings for all four profiles. See
+`docs/ppo_primary_state_pilot_protocol.md` for the protocol audit, conflicts,
+resume contract, test seal, and exact commands. This pilot must not be interpreted
+as final feature-set selection.
+
 This repository separates raw data preparation from modeling-data construction:
 
 - `main.py` downloads VitalDB tracks and performs initial signal-quality filtering,

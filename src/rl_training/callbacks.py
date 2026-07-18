@@ -90,12 +90,19 @@ class PPOProgressCallback(BaseCallback):
 
     def _on_rollout_end(self) -> None:
         values = self.model.logger.name_to_value
+        episode_returns = [
+            float(info["r"])
+            for info in self.model.ep_info_buffer
+            if "r" in info
+        ]
         window_actions = self.normalized_action_count - self._window_start_actions
         window_clips = self.normalized_clipping_count - self._window_start_clips
         self.rollout_rows.append(
             {
                 "timesteps": self.num_timesteps,
-                "rollout_mean_reward": float(values.get("rollout/ep_rew_mean", np.nan)),
+                "rollout_mean_reward": (
+                    float(np.mean(episode_returns)) if episode_returns else np.nan
+                ),
                 "train_loss": float(values.get("train/loss", np.nan)),
                 "policy_gradient_loss": float(values.get("train/policy_gradient_loss", np.nan)),
                 "value_loss": float(values.get("train/value_loss", np.nan)),

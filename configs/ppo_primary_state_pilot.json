@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "protocol_version": "ppo_primary_state_pilot_v1",
+  "profiles": [
+    "original_reconstructed",
+    "all_supported",
+    "prediction_minimal",
+    "selected_control_core"
+  ],
+  "seeds": [7, 42, 84],
+  "library": {
+    "stable_baselines3": "2.9.0"
+  },
+  "policy": {
+    "class": "MlpPolicy",
+    "feature_extractor": "stable_baselines3.common.torch_layers.FlattenExtractor",
+    "hidden_layers": [64, 64],
+    "activation": "Tanh",
+    "optimizer": "Adam"
+  },
+  "ppo": {
+    "profile_name": "ppo_primary_state_pilot_v1",
+    "learning_rate": 0.0003,
+    "n_steps": 2048,
+    "batch_size": 64,
+    "n_epochs": 10,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip_range": 0.2,
+    "ent_coef": 0.0,
+    "vf_coef": 0.5,
+    "max_grad_norm": 0.5,
+    "latent_dim": 64,
+    "policy_hidden_dim": 64,
+    "total_timesteps": 102400,
+    "evaluation_frequency_timesteps": 51200,
+    "evaluation_episode_count": 15,
+    "episode_duration_seconds": 1800.0,
+    "action_bounds_profile": "synthetic_nonclinical_v1",
+    "reward_profile": "transparent_tracking_v1",
+    "action_magnitude_coefficient": 0.0,
+    "action_change_coefficient": 0.0,
+    "deterministic_simulator": true
+  },
+  "observation": {
+    "history_window_seconds": 60,
+    "decision_interval_seconds": 10,
+    "normalization": "fixed unit-aware physical scaling",
+    "learned_normalization_statistics": false
+  },
+  "reward": {
+    "normalization": "none",
+    "target_bis": 50.0,
+    "safe_bis_range": [40.0, 60.0]
+  },
+  "cohort": {
+    "training_sampling": "uniform random train patient per episode",
+    "validation_sampling": "all validation patients in frozen manifest order",
+    "validation_scenario_base_seed": 100000,
+    "test_split_membership_and_demographics_may_parameterize_manifest": true,
+    "test_trajectory_access": false,
+    "test_outcome_access": false,
+    "test_policy_rollout": false
+  },
+  "evaluation": {
+    "deterministic_policy": true,
+    "paired_scenarios_across_profiles_and_seeds": true,
+    "checkpoint_selection": [
+      "validation_bis_target_mae_ascending",
+      "validation_fraction_time_in_bis_40_60_descending",
+      "validation_absolute_action_change_sum_ascending"
+    ],
+    "training_return_used_for_selection": false,
+    "test_split_used_for_selection": false
+  },
+  "resume": {
+    "checkpoint_every_rollout": true,
+    "resume_boundary_timesteps": 2048,
+    "completed_matching_protocol_runs_are_skipped": true,
+    "optimizer_state_restored": true,
+    "partial_environment_episode_restored": false,
+    "partial_episode_policy": "discard partial episode and advance to the next deterministic train-patient draw"
+  },
+  "interpretation": {
+    "pilot_is_final_winner_selection": false,
+    "profile_specific_hyperparameter_tuning": false,
+    "clinical_use": false
+  }
+}

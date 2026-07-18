@@ -9,6 +9,11 @@
 > `prediction_minimal` and `selected_control_core`, and manifest-loaded `selected`.
 > The two candidate profiles are not a declared final selected state.
 
+The approved 102,400-step state-only pilot is versioned separately in
+`configs/ppo_primary_state_pilot.json`; its audit and execution contract are in
+`docs/ppo_primary_state_pilot_protocol.md`. This legacy architecture protocol and
+its existing artifacts are not overwritten.
+
 Module 6 compares four observation/encoder conditions around the same Module 5
 transition, reward, action bounds, patient split, target, and exogenous
 remifentanil scenario.

@@ -65,8 +65,13 @@ class PPOConfig:
     deterministic_simulator: bool = True
 
     def __post_init__(self) -> None:
-        if self.profile_name != "ppo_research_v1":
-            raise ValueError("The default full protocol must be labeled ppo_research_v1.")
+        if self.profile_name not in (
+            "ppo_research_v1",
+            "ppo_primary_state_pilot_v1",
+        ):
+            raise ValueError(
+                "PPO profile_name must identify the full or primary-state pilot protocol."
+            )
         if self.n_steps <= 0 or self.batch_size <= 0 or self.n_epochs <= 0:
             raise ValueError("PPO rollout and optimization sizes must be positive.")
         if self.n_steps % self.batch_size != 0:

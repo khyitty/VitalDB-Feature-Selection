@@ -631,12 +631,27 @@ class CohortScenarioWrapper(gym.Wrapper):
         super().__init__(env)
         self.bundle = bundle
         self.split = split
+        self.base_seed = int(base_seed)
         self.scenarios = scenarios_for_split(bundle, split, base_seed=base_seed)
         self.episode_duration_seconds = episode_duration_seconds
         self.cycle = cycle
         self._rng = np.random.default_rng(base_seed)
         self._index = 0
         self.current_scenario: EvaluationScenario | None = None
+
+    def advance_random_sampling_for_resume(self, timesteps: int) -> int:
+        """Skip prior train-patient draws when a partial environment episode is discarded."""
+
+        if self.cycle or self.split != "train":
+            raise ValueError("Random resume advancement is defined only for train sampling.")
+        if timesteps < 0:
+            raise ValueError("Resume timesteps must be non-negative decision counts.")
+        decisions_per_episode = int(self.episode_duration_seconds / 10.0)
+        draws_to_skip = 1 + timesteps // decisions_per_episode
+        self._rng = np.random.default_rng(self.base_seed)
+        self._rng.integers(len(self.scenarios), size=draws_to_skip)
+        self.current_scenario = None
+        return draws_to_skip
 
     def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
         if seed is not None:
