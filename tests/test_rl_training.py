@@ -46,6 +46,7 @@ from src.rl_training.cohort import (
 from src.rl_training.config import (
     EXPERIMENT_SEEDS,
     POLICY_CONDITIONS,
+    PRIMARY_STATE_PROFILES,
     PPOConfig,
     smoke_ppo_config,
 )
@@ -87,6 +88,20 @@ ROOT = Path(__file__).parents[1]
 def test_primary_state_options_cannot_fall_through_to_legacy_full_training() -> None:
     with pytest.raises(ValueError, match="smoke-only"):
         run_ppo_main(["--state-profile", "selected"])
+
+
+def test_primary_candidate_profiles_are_cli_selectable_without_resolving_selected() -> None:
+    assert PRIMARY_STATE_PROFILES == (
+        "original_reconstructed",
+        "all_supported",
+        "prediction_minimal",
+        "selected_control_core",
+        "selected",
+    )
+    for profile in ("prediction_minimal", "selected_control_core"):
+        assert get_state_profile(profile).name == profile
+    with pytest.raises(ValueError, match="requires selected_state_manifest"):
+        get_state_profile("selected")
 
 
 def test_run_status_running_complete_and_failed_are_unambiguous(tmp_path: Path) -> None:

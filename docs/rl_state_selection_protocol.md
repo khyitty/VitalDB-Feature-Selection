@@ -15,8 +15,15 @@ superiority.
 
 ## State manifests
 
-The canonical profiles are `original_reconstructed`, `all_supported`, and
-manifest-loaded `selected`. A selected manifest records exact feature order,
+The canonical comparison profiles are `original_reconstructed`, `all_supported`,
+`prediction_minimal`, `selected_control_core`, and manifest-loaded `selected`.
+`prediction_minimal` contains BIS and `bis_delta_10s` plus demographics and is a
+minimal stable 30-second prediction candidate without direct drug state; its control
+adequacy is unconfirmed. `selected_control_core` adds current propofol/remifentanil
+rates and simulator-generated propofol/remifentanil Cp as a control-oriented
+candidate. Neither candidate is the declared final selected state.
+
+A selected manifest records exact feature order,
 selection provenance, split, seeds, patient/feature aggregation, threshold or top-k
 rule, timestamp, and canonical commit. A pending manifest cannot execute. Test-split
 selection and simulator-unsupported features fail validation.
@@ -42,6 +49,12 @@ not Cp or Ce. `original_reconstructed` remains Cp/Ce-free, while `all_supported`
 contains all four and `selected` may retain or remove them. Prior attention,
 ablation, `strict_consensus`, and frozen-candidate outputs are legacy exploratory
 evidence and cannot supply the final selected manifest.
+
+Every primary profile uses the same six decision points spanning 60 seconds, the
+same temporal validity mask, demographics ordered as age/sex/height/weight, and the
+same fixed physical scales. The state-only PPO comparison holds simulator dynamics,
+action and reward definitions, common MLP architecture, hyperparameters, budget,
+seed, cohort, and evaluation fixed.
 
 VitalDB metadata establishes that Orchestra CP/CE are TCI-pump estimates, but it does
 not establish exact equivalence of pump model version, covariates, initialization,

@@ -40,6 +40,13 @@ Prior physiological-inclusive and 9-feature version-1 datasets, rankings, ablati
   online LOWESS implementation. It does not expose Cp/Ce.
 - `all_supported`: all 13 simulator-compatible dynamic candidates, including
   Schnider/Minto Cp/Ce, plus demographics.
+- `prediction_minimal`: candidate state containing only BIS and
+  `bis_delta_10s` history plus demographics. It reflects the stable minimal
+  30-second prediction signal and has no direct drug state; control adequacy is
+  deliberately unconfirmed.
+- `selected_control_core`: control-oriented candidate containing BIS and
+  `bis_delta_10s`, current propofol/remifentanil rates, and simulator-generated
+  propofol/remifentanil Cp, plus demographics.
 - `selected`: features loaded only from a validated, versioned JSON manifest; Cp/Ce
   may be retained or removed by the later validation-only selection procedure.
 - `legacy_control_aware`: former `selected_control_aware` debugging subset. It is
@@ -50,6 +57,11 @@ deprecated aliases. The template at
 `configs/rl_state_profiles/selected_template.json` is intentionally pending and
 cannot start a run. The final selection rule, manifest, seeds, and full PPO budget
 remain supervisor decisions.
+
+The two named candidate profiles are comparison candidates, not a declared final
+selected state. They use the same six 10-second history rows, temporal mask, static
+concatenation, fixed physical scaling, common MLP policy, simulator, action, reward,
+and PPO settings as the existing primary profiles.
 
 Run the non-scientific common-policy integration smoke with exactly 1,000 PPO steps:
 

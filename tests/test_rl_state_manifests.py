@@ -115,11 +115,18 @@ def test_legacy_selected_name_is_not_the_proposed_selected_state() -> None:
 
 
 def test_primary_state_policy_contract_is_architecture_identical() -> None:
-    original = primary_state_policy_contract("original_reconstructed")
-    all_supported = primary_state_policy_contract("all_supported")
-    validate_state_only_comparison([original, all_supported])
-    assert original.architecture_signature == all_supported.architecture_signature
-    assert original.observation_dimension != all_supported.observation_dimension
+    contracts = [
+        primary_state_policy_contract(name)
+        for name in (
+            "original_reconstructed",
+            "all_supported",
+            "prediction_minimal",
+            "selected_control_core",
+        )
+    ]
+    validate_state_only_comparison(contracts)
+    assert len({contract.architecture_signature for contract in contracts}) == 1
+    assert {contract.observation_dimension for contract in contracts} == {53, 89, 23, 47}
 
 
 def test_state_only_guard_rejects_changed_encoder() -> None:

@@ -37,6 +37,20 @@ ORIGINAL_YUN_FEATURES = (
 
 ALL_SUPPORTED_FEATURES = END_TO_END_DYNAMIC_FEATURES
 
+PREDICTION_MINIMAL_FEATURES = (
+    "bis",
+    "bis_delta_10s",
+)
+
+SELECTED_CONTROL_CORE_FEATURES = (
+    "bis",
+    "bis_delta_10s",
+    "propofol_rate_mg_per_min",
+    "propofol_cp_mg_per_l",
+    "remifentanil_rate_micrograms_per_min",
+    "remifentanil_cp_micrograms_per_l",
+)
+
 SELECTED_CONTROL_AWARE_FEATURES = (
     "bis",
     "bis_delta_10s",
@@ -140,6 +154,22 @@ STATE_PROFILES: dict[str, StateProfile] = {
         ALL_SUPPORTED_FEATURES,
         purpose="All end-to-end prediction/simulator-compatible control observations.",
     ),
+    "prediction_minimal": StateProfile(
+        "prediction_minimal",
+        PREDICTION_MINIMAL_FEATURES,
+        purpose=(
+            "Minimal stable 30-second BIS-prediction candidate with causal BIS history "
+            "and demographics; its adequacy for control is not established."
+        ),
+    ),
+    "selected_control_core": StateProfile(
+        "selected_control_core",
+        SELECTED_CONTROL_CORE_FEATURES,
+        purpose=(
+            "Control-oriented candidate combining causal BIS history with current "
+            "propofol/remifentanil rates and simulator-generated plasma concentrations."
+        ),
+    ),
     "attention_ready": StateProfile(
         "attention_ready",
         ALL_SUPPORTED_FEATURES,
@@ -239,8 +269,11 @@ def state_profile_registry() -> dict[str, Any]:
         "canonical_primary_profiles": [
             "original_reconstructed",
             "all_supported",
+            "prediction_minimal",
+            "selected_control_core",
             "selected",
         ],
+        "candidate_profiles_are_final_selected_state": False,
         "official_experiment_baseline_name": "original_reconstructed",
         "original_reconstructed_is_exact_reproduction": False,
         "all_attention_raw_information_equal": (

@@ -10,6 +10,8 @@ from typing import Literal
 
 StateProfileName = Literal[
     "original_reconstructed",
+    "prediction_minimal",
+    "selected_control_core",
     "selected",
     "legacy_control_aware",
     "original_yun",

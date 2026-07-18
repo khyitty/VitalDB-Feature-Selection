@@ -30,7 +30,9 @@ from src.rl_env.state_adapters import (
     ALL_SUPPORTED_FEATURES,
     EXCLUDED_LATENT_STATES,
     ORIGINAL_YUN_FEATURES,
+    PREDICTION_MINIMAL_FEATURES,
     SELECTED_CONTROL_AWARE_FEATURES,
+    SELECTED_CONTROL_CORE_FEATURES,
     STATE_PROFILES,
     UNSUPPORTED_PREDICTIVE_FEATURES,
     UNSUPPORTED_VITAL_SIGNS,
@@ -176,6 +178,89 @@ def test_all_supported_ordered_schema() -> None:
         "remifentanil_cp_micrograms_per_l",
         "remifentanil_ce_micrograms_per_l",
     }.issubset(ALL_SUPPORTED_FEATURES)
+
+
+def test_candidate_profile_manifests_have_exact_scientific_order() -> None:
+    assert PREDICTION_MINIMAL_FEATURES == (
+        "bis",
+        "bis_delta_10s",
+    )
+    assert SELECTED_CONTROL_CORE_FEATURES == (
+        "bis",
+        "bis_delta_10s",
+        "propofol_rate_mg_per_min",
+        "propofol_cp_mg_per_l",
+        "remifentanil_rate_micrograms_per_min",
+        "remifentanil_cp_micrograms_per_l",
+    )
+    assert STATE_PROFILES["prediction_minimal"].ordered_feature_names == (
+        *PREDICTION_MINIMAL_FEATURES,
+        "age_years",
+        "sex_male",
+        "height_cm",
+        "weight_kg",
+    )
+    assert STATE_PROFILES["selected_control_core"].ordered_feature_names == (
+        *SELECTED_CONTROL_CORE_FEATURES,
+        "age_years",
+        "sex_male",
+        "height_cm",
+        "weight_kg",
+    )
+    assert "bis_target_error" not in PREDICTION_MINIMAL_FEATURES
+    assert "bis_target_error" not in SELECTED_CONTROL_CORE_FEATURES
+
+
+@pytest.mark.parametrize(
+    ("profile_name", "dynamic_features", "observation_dimension"),
+    [
+        ("original_reconstructed", ORIGINAL_YUN_FEATURES, 53),
+        ("all_supported", ALL_SUPPORTED_FEATURES, 89),
+        ("prediction_minimal", PREDICTION_MINIMAL_FEATURES, 23),
+        ("selected_control_core", SELECTED_CONTROL_CORE_FEATURES, 47),
+    ],
+)
+def test_primary_profile_observation_contract(
+    profile_name: str,
+    dynamic_features: tuple[str, ...],
+    observation_dimension: int,
+) -> None:
+    profile = STATE_PROFILES[profile_name]
+    env = _env(state_profile=profile_name)
+    initial, _ = env.reset(seed=11)
+    stepped, *_ = env.step(np.asarray([4.0], dtype=np.float32))
+    for observation in (initial, stepped):
+        assert observation["history"].shape == (6, len(dynamic_features))
+        assert observation["history_mask"].shape == (6,)
+        assert observation["static"].shape == (4,)
+        assert all(np.isfinite(value).all() for value in observation.values())
+    assert profile.dynamic_feature_names == dynamic_features
+    assert profile.observation_dimension() == observation_dimension
+
+
+def test_selected_control_core_cp_columns_are_live_simulator_plasma_states() -> None:
+    env = PropofolControlEnv(
+        _config(state_profile="selected_control_core"),
+        remifentanil_schedule=ConstantSchedule(5.0),
+    )
+    env.reset(seed=17)
+    observation, _, _, _, info = env.step(np.asarray([4.0], dtype=np.float32))
+    propofol_index = SELECTED_CONTROL_CORE_FEATURES.index("propofol_cp_mg_per_l")
+    remifentanil_index = SELECTED_CONTROL_CORE_FEATURES.index(
+        "remifentanil_cp_micrograms_per_l"
+    )
+    assert observation["history"][-1, propofol_index] == pytest.approx(
+        info["propofol_cp_mg_per_l"]
+    )
+    assert observation["history"][-1, remifentanil_index] == pytest.approx(
+        info["remifentanil_cp_micrograms_per_l"]
+    )
+    assert info["propofol_cp_mg_per_l"] != pytest.approx(
+        info["propofol_ce_mg_per_l"]
+    )
+    assert info["remifentanil_cp_micrograms_per_l"] != pytest.approx(
+        info["remifentanil_ce_micrograms_per_l"]
+    )
 
 
 def test_attention_ready_history_and_static_shapes() -> None:

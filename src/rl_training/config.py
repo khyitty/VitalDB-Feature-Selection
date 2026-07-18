@@ -16,11 +16,15 @@ PolicyCondition = Literal[
 PrimaryStateProfile = Literal[
     "original_reconstructed",
     "all_supported",
+    "prediction_minimal",
+    "selected_control_core",
     "selected",
 ]
 PRIMARY_STATE_PROFILES: tuple[PrimaryStateProfile, ...] = (
     "original_reconstructed",
     "all_supported",
+    "prediction_minimal",
+    "selected_control_core",
     "selected",
 )
 

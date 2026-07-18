@@ -5,7 +5,9 @@
 > support the primary scientific claim about state selection. It is retained for
 > backward compatibility and optional secondary architecture analysis. The primary
 > state-only protocol uses one common SB3 MLP/FlattenExtractor for
-> `original_reconstructed`, `all_supported`, and manifest-loaded `selected`.
+> `original_reconstructed`, `all_supported`, candidate profiles
+> `prediction_minimal` and `selected_control_core`, and manifest-loaded `selected`.
+> The two candidate profiles are not a declared final selected state.
 
 Module 6 compares four observation/encoder conditions around the same Module 5
 transition, reward, action bounds, patient split, target, and exogenous
