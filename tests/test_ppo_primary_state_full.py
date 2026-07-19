@@ -10,7 +10,6 @@ import pandas as pd
 import pytest
 
 from scripts.run_ppo_state_full import validate_confirmation
-from src.rl_training.cohort import load_vitaldb_virtual_cohort
 from src.rl_training.device_benchmark import analyze_device_benchmarks
 from src.rl_training.full_analysis import (
     hierarchical_bootstrap_intervals,
@@ -38,12 +37,8 @@ NOTEBOOK = ROOT / "notebooks/colab_ppo_primary_state_full_training.ipynb"
 
 
 @pytest.fixture(scope="module")
-def full_cohort():
-    with pytest.warns(UserWarning):
-        return load_vitaldb_virtual_cohort(
-            ROOT / "data/modeling/full",
-            demographics_csv=ROOT / "data/raw/clinical.csv",
-        )
+def full_cohort(ppo_test_cohort):
+    return ppo_test_cohort
 
 
 @pytest.fixture(scope="module")
@@ -64,6 +59,97 @@ def full_protocol(full_cohort):
         execution_device="cpu",
         backend_decision=decision,
     )
+
+
+def _make_path_resolver_inputs(root: Path) -> tuple[Path, Path]:
+    dataset_dir = root / "data/modeling/full"
+    dataset_dir.mkdir(parents=True)
+    demographics_csv = root / "data/raw/clinical.csv"
+    demographics_csv.parent.mkdir(parents=True)
+    demographics_csv.write_text("caseid,age,sex,height,weight\n", encoding="utf-8")
+    return dataset_dir, demographics_csv
+
+
+def test_ppo_test_paths_use_dataset_environment_override(
+    tmp_path: Path, ppo_test_path_resolver
+) -> None:
+    _, fallback_demographics = _make_path_resolver_inputs(tmp_path / "repo")
+    external_dataset = tmp_path / "drive/modeling/full"
+    external_dataset.mkdir(parents=True)
+    resolved = ppo_test_path_resolver(
+        repository_root=tmp_path / "repo",
+        environ={"VITALDB_MODELING_DATASET_DIR": str(external_dataset)},
+    )
+    assert resolved.dataset_dir == external_dataset.resolve()
+    assert resolved.demographics_csv == fallback_demographics.resolve()
+
+
+def test_ppo_test_paths_use_demographics_environment_override(
+    tmp_path: Path, ppo_test_path_resolver
+) -> None:
+    fallback_dataset, _ = _make_path_resolver_inputs(tmp_path / "repo")
+    external_demographics = tmp_path / "drive/raw/clinical.csv"
+    external_demographics.parent.mkdir(parents=True)
+    external_demographics.write_text(
+        "caseid,age,sex,height,weight\n", encoding="utf-8"
+    )
+    resolved = ppo_test_path_resolver(
+        repository_root=tmp_path / "repo",
+        environ={"VITALDB_DEMOGRAPHICS_CSV": str(external_demographics)},
+    )
+    assert resolved.dataset_dir == fallback_dataset.resolve()
+    assert resolved.demographics_csv == external_demographics.resolve()
+
+
+def test_ppo_test_paths_fall_back_to_repository_local_inputs(
+    tmp_path: Path, ppo_test_path_resolver
+) -> None:
+    dataset_dir, demographics_csv = _make_path_resolver_inputs(tmp_path / "repo")
+    resolved = ppo_test_path_resolver(
+        repository_root=tmp_path / "repo", environ={}
+    )
+    assert resolved.dataset_dir == dataset_dir.resolve()
+    assert resolved.demographics_csv == demographics_csv.resolve()
+    assert resolved.project_data_root is None
+
+
+def test_ppo_test_paths_support_project_data_root(
+    tmp_path: Path, ppo_test_path_resolver
+) -> None:
+    project_data_root = tmp_path / "drive/data"
+    dataset_dir = project_data_root / "modeling/full"
+    dataset_dir.mkdir(parents=True)
+    demographics_csv = project_data_root / "raw/clinical.csv"
+    demographics_csv.parent.mkdir(parents=True)
+    demographics_csv.write_text(
+        "caseid,age,sex,height,weight\n", encoding="utf-8"
+    )
+    resolved = ppo_test_path_resolver(
+        repository_root=tmp_path / "repo",
+        environ={"VITALDB_PROJECT_DATA_ROOT": str(project_data_root)},
+    )
+    assert resolved.dataset_dir == dataset_dir.resolve()
+    assert resolved.demographics_csv == demographics_csv.resolve()
+    assert resolved.project_data_root == project_data_root.resolve()
+
+
+def test_ppo_test_paths_fail_clearly_for_invalid_environment_override(
+    tmp_path: Path, ppo_test_path_resolver
+) -> None:
+    _, demographics_csv = _make_path_resolver_inputs(tmp_path / "repo")
+    missing = tmp_path / "missing/modeling/full"
+    with pytest.raises(FileNotFoundError) as error:
+        ppo_test_path_resolver(
+            repository_root=tmp_path / "repo",
+            environ={
+                "VITALDB_MODELING_DATASET_DIR": str(missing),
+                "VITALDB_DEMOGRAPHICS_CSV": str(demographics_csv),
+            },
+        )
+    message = str(error.value)
+    assert "VITALDB_MODELING_DATASET_DIR" in message
+    assert str(missing.resolve()) in message
+    assert "Repository-local defaults" in message
 
 
 def test_full_source_is_exact_non_smoke_inventory() -> None:
@@ -344,3 +430,7 @@ def test_colab_notebook_is_clean_json_and_python_ast() -> None:
     assert "pilot_checkpoint" not in source.lower()
     assert "test.npz" in source
     assert "np.load" not in source
+    assert 'env["VITALDB_MODELING_DATASET_DIR"]' in source
+    assert 'env["VITALDB_DEMOGRAPHICS_CSV"]' in source
+    assert 'env["VITALDB_PROJECT_DATA_ROOT"]' in source
+    assert 'env["VITALDB_EXPECTED_COHORT_FINGERPRINT"]' in source

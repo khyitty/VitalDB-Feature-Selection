@@ -103,3 +103,9 @@ python scripts/run_ppo_state_full.py --device cpu --demographics-csv data/raw/cl
 
 The Colab entry point is `notebooks/colab_ppo_primary_state_full_training.ipynb`.
 It defaults to CUDA benchmark only and keeps full training locked.
+Its focused pytest preflight injects `VITALDB_MODELING_DATASET_DIR`,
+`VITALDB_DEMOGRAPHICS_CSV`, and `VITALDB_PROJECT_DATA_ROOT` so a clean Colab clone
+uses the same Drive-backed inputs as the benchmark and full runner. Data-backed PPO
+tests retain repository-local defaults when those variables are unset, fail explicitly
+when resolved inputs are missing, and can enforce the notebook's precomputed cohort
+fingerprint through `VITALDB_EXPECTED_COHORT_FINGERPRINT`.

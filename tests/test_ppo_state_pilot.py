@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from src.rl_training.cohort import load_vitaldb_virtual_cohort, scenarios_for_split
+from src.rl_training.cohort import scenarios_for_split
 from src.rl_training.config import PPOConfig
 from src.rl_training.environment_factory import make_primary_state_environment
 from src.rl_training.pilot_analysis import (
@@ -43,12 +43,8 @@ SOURCE = ROOT / "configs/ppo_primary_state_pilot.json"
 
 
 @pytest.fixture(scope="module")
-def pilot_cohort():
-    with pytest.warns(UserWarning):
-        return load_vitaldb_virtual_cohort(
-            ROOT / "data/modeling/full",
-            demographics_csv=ROOT / "data/raw/clinical.csv",
-        )
+def pilot_cohort(ppo_test_cohort):
+    return ppo_test_cohort
 
 
 @pytest.fixture(scope="module")

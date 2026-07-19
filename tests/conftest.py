@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import json
+import os
 import shutil
 from pathlib import Path
+from typing import Mapping
 
 import numpy as np
 import pandas as pd
@@ -20,6 +23,130 @@ from src.frozen_candidate_retraining import (
 )
 from src.group_retraining_analysis import EXPECTED_FEATURES
 from src.redundancy_audit import REDUCED_FEATURES
+from src.rl_training.cohort import CohortBundle, load_vitaldb_virtual_cohort
+
+
+REPOSITORY_ROOT = Path(__file__).parents[1]
+MODEL_DATASET_ENV = "VITALDB_MODELING_DATASET_DIR"
+DEMOGRAPHICS_ENV = "VITALDB_DEMOGRAPHICS_CSV"
+PROJECT_DATA_ROOT_ENV = "VITALDB_PROJECT_DATA_ROOT"
+EXPECTED_COHORT_FINGERPRINT_ENV = "VITALDB_EXPECTED_COHORT_FINGERPRINT"
+
+
+@dataclass(frozen=True)
+class PPOTestDataPaths:
+    """Resolved external inputs for data-backed PPO contract tests."""
+
+    dataset_dir: Path
+    demographics_csv: Path
+    project_data_root: Path | None
+
+
+def _configured_path(
+    environ: Mapping[str, str], name: str
+) -> Path | None:
+    raw = environ.get(name)
+    if raw is None:
+        return None
+    if not raw.strip():
+        raise FileNotFoundError(
+            f"{name} is set but empty. Set it to an absolute path or unset it."
+        )
+    return Path(raw).expanduser().resolve()
+
+
+def resolve_ppo_test_data_paths(
+    *,
+    repository_root: Path = REPOSITORY_ROOT,
+    environ: Mapping[str, str] | None = None,
+) -> PPOTestDataPaths:
+    """Resolve PPO test data explicitly, with repository-local compatibility."""
+
+    values = os.environ if environ is None else environ
+    root = repository_root.expanduser().resolve()
+    project_root = _configured_path(values, PROJECT_DATA_ROOT_ENV)
+    configured_dataset = _configured_path(values, MODEL_DATASET_ENV)
+    configured_demographics = _configured_path(values, DEMOGRAPHICS_ENV)
+
+    dataset_dir = configured_dataset or (
+        project_root / "modeling/full"
+        if project_root is not None
+        else root / "data/modeling/full"
+    )
+    demographics_csv = configured_demographics or (
+        project_root / "raw/clinical.csv"
+        if project_root is not None
+        else root / "data/raw/clinical.csv"
+    )
+
+    problems: list[str] = []
+    if project_root is not None and not project_root.is_dir():
+        problems.append(
+            f"{PROJECT_DATA_ROOT_ENV} resolved to a missing directory: {project_root}"
+        )
+    if not dataset_dir.is_dir():
+        problems.append(
+            f"{MODEL_DATASET_ENV} resolved dataset directory is missing: {dataset_dir}"
+        )
+    if not demographics_csv.is_file():
+        problems.append(
+            f"{DEMOGRAPHICS_ENV} resolved demographics CSV is missing: {demographics_csv}"
+        )
+    if problems:
+        defaults = (
+            f"Repository-local defaults are {root / 'data/modeling/full'} and "
+            f"{root / 'data/raw/clinical.csv'}."
+        )
+        configuration = (
+            f"Set {MODEL_DATASET_ENV} and {DEMOGRAPHICS_ENV} to readable external "
+            f"inputs; optionally set {PROJECT_DATA_ROOT_ENV} to a data root containing "
+            "modeling/full and raw/clinical.csv."
+        )
+        raise FileNotFoundError(
+            "PPO test data preflight failed:\n- "
+            + "\n- ".join(problems)
+            + f"\n{defaults}\n{configuration}"
+        )
+    return PPOTestDataPaths(
+        dataset_dir=dataset_dir,
+        demographics_csv=demographics_csv,
+        project_data_root=project_root,
+    )
+
+
+@pytest.fixture(scope="session")
+def ppo_test_data_paths() -> PPOTestDataPaths:
+    """Provide one explicit data contract to every data-backed PPO test."""
+
+    return resolve_ppo_test_data_paths()
+
+
+@pytest.fixture(scope="session")
+def ppo_test_cohort(ppo_test_data_paths: PPOTestDataPaths) -> CohortBundle:
+    """Load the shared PPO cohort and enforce an optional external fingerprint."""
+
+    with pytest.warns(UserWarning):
+        cohort = load_vitaldb_virtual_cohort(
+            ppo_test_data_paths.dataset_dir,
+            demographics_csv=ppo_test_data_paths.demographics_csv,
+            project_data_root=ppo_test_data_paths.project_data_root,
+        )
+    expected = os.environ.get(EXPECTED_COHORT_FINGERPRINT_ENV)
+    if expected is not None and cohort.fingerprint != expected.strip():
+        pytest.fail(
+            "PPO test cohort fingerprint differs from the caller's preflight: "
+            f"expected={expected.strip()}, observed={cohort.fingerprint}, "
+            f"dataset={ppo_test_data_paths.dataset_dir}, "
+            f"demographics={ppo_test_data_paths.demographics_csv}."
+        )
+    return cohort
+
+
+@pytest.fixture
+def ppo_test_path_resolver():
+    """Expose the pure path resolver for focused precedence/error tests."""
+
+    return resolve_ppo_test_data_paths
 
 
 @pytest.fixture

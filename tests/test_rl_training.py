@@ -39,7 +39,6 @@ from src.rl_training.attention_logging import (
     verify_attention_checkpoint,
 )
 from src.rl_training.cohort import (
-    load_vitaldb_virtual_cohort,
     remifentanil_schedule_for_scenario,
     scenarios_for_split,
 )
@@ -188,11 +187,8 @@ def test_primary_common_mlp_smoke_writes_reload_and_evaluation_artifacts(
 
 
 @pytest.fixture(scope="module")
-def cohort_bundle():
-    with pytest.warns(UserWarning):
-        return load_vitaldb_virtual_cohort(
-            ROOT / "data/modeling/full", project_data_root=ROOT / "data"
-        )
+def cohort_bundle(ppo_test_cohort):
+    return ppo_test_cohort
 
 
 def _model(condition: str, seed: int = 1):
@@ -297,7 +293,8 @@ def test_vitaldb_virtual_cohort_reuses_disjoint_splits_without_imputation(cohort
     manifest = cohort_bundle.cohort.manifest
     assert (len(manifest.train_patient_ids), len(manifest.validation_patient_ids), len(manifest.test_patient_ids)) == (68, 15, 15)
     assert len(cohort_bundle.patient_records) == 98
-    assert cohort_bundle.demographics_source.endswith("vitaldb_clean_100cases.csv")
+    assert cohort_bundle.demographics_source_kind == "explicit_csv"
+    assert cohort_bundle.demographics_source_fingerprint
 
 
 def test_scenario_ids_and_remifentanil_are_deterministic_and_paired(cohort_bundle) -> None:
