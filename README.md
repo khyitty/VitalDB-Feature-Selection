@@ -448,3 +448,11 @@ The existing test split has already been inspected during development and is the
 a development test set, not a pristine final holdout. Future group-retraining candidate
 selection must remain validation-only. A final performance claim should use previously
 unseen cases or another pre-specified evaluation design.
+
+## PPO Primary-State Full Study
+
+The completed 12-run pilot is audited separately from the fresh 20-run
+validation-only full study. The full source, backend benchmark rule, resume contract,
+test seal, and new Colab workflow are documented in
+`docs/ppo_primary_state_full_protocol.md`. Full training is locked by default and
+never initializes from pilot checkpoints.

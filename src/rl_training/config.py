@@ -68,9 +68,12 @@ class PPOConfig:
         if self.profile_name not in (
             "ppo_research_v1",
             "ppo_primary_state_pilot_v1",
+            "ppo_primary_state_full_v1",
+            "ppo_primary_state_device_benchmark_v1",
         ):
             raise ValueError(
-                "PPO profile_name must identify the full or primary-state pilot protocol."
+                "PPO profile_name must identify a registered research, primary-state "
+                "pilot/full, or device-benchmark protocol."
             )
         if self.n_steps <= 0 or self.batch_size <= 0 or self.n_epochs <= 0:
             raise ValueError("PPO rollout and optimization sizes must be positive.")

@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import shutil
 import time
-from typing import Any, Mapping, cast
+from typing import Any, Callable, Mapping, Sequence, cast
 
 import numpy as np
 import pandas as pd
@@ -265,14 +265,25 @@ def _completion_is_valid(
     run_dir: Path,
     state_profile: str,
     seed: int,
+    workflow: str,
 ) -> bool:
-    required = (
+    ppo = protocol.get("ppo", {})
+    total = int(ppo.get("total_timesteps", -1))
+    frequency = int(ppo.get("evaluation_frequency_timesteps", -1))
+    evaluation_steps = (
+        tuple(range(frequency, total + 1, frequency))
+        if frequency > 0 and total > 0 and total % frequency == 0
+        else ()
+    )
+    required = [
         run_dir / "best_model.zip",
         run_dir / "best_checkpoint.json",
         run_dir / "training_progress.csv",
         run_dir / "evaluation_progress.csv",
         run_dir / "action_diagnostics.csv",
-    )
+    ]
+    required.extend(run_dir / f"checkpoint_{step}.zip" for step in evaluation_steps)
+    required.extend(run_dir / f"validation_{step}.csv" for step in evaluation_steps)
     status_path = run_dir / "run_status.json"
     status = (
         json.loads(status_path.read_text(encoding="utf-8"))
@@ -290,11 +301,12 @@ def _completion_is_valid(
         == int(protocol.get("ppo", {}).get("total_timesteps", -2))
         and status.get("status") == "complete"
         and status.get("protocol_hash") == protocol.get("protocol_hash")
+        and status.get("resolved_config", {}).get("workflow") == workflow
         and all(path.is_file() for path in required)
     )
 
 
-def run_primary_state_pilot(
+def run_primary_state_experiment(
     *,
     protocol: dict[str, Any],
     state_profile: PrimaryStateProfile,
@@ -303,12 +315,19 @@ def run_primary_state_pilot(
     output_root: Path,
     repo_dir: Path,
     device: str,
+    protocol_verifier: Callable[[Mapping[str, Any]], None],
+    allowed_profiles: Sequence[str],
+    workflow: str,
+    experiment_label: str,
+    config_extras: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Run or safely resume one frozen pilot identity; never access test trajectories."""
+    """Run or safely resume one frozen primary-state identity."""
 
-    verify_pilot_protocol(protocol)
-    if state_profile not in PILOT_PROFILES:
-        raise ValueError(f"State profile {state_profile!r} is outside the pilot.")
+    protocol_verifier(protocol)
+    if state_profile not in allowed_profiles:
+        raise ValueError(
+            f"State profile {state_profile!r} is outside the {experiment_label}."
+        )
     identities = {
         (item["state_profile"], int(item["seed"])) for item in protocol["inventory"]
     }
@@ -321,9 +340,13 @@ def run_primary_state_pilot(
             f"{protocol['execution_device']!r}."
         )
     if stable_baselines3.__version__ != protocol["library"]["stable_baselines3_required"]:
-        raise ValueError("Stable-Baselines3 version differs from the frozen pilot.")
+        raise ValueError(
+            f"Stable-Baselines3 version differs from the frozen {experiment_label}."
+        )
     if repository_commit(repo_dir) != protocol["implementation_commit"]:
-        raise ValueError("Repository HEAD differs from the frozen pilot implementation commit.")
+        raise ValueError(
+            f"Repository HEAD differs from the frozen {experiment_label} implementation commit."
+        )
     if cohort.fingerprint != protocol["cohort_contract"]["fingerprint"]:
         raise ValueError("Cohort fingerprint differs from the frozen primary-state pilot.")
 
@@ -341,12 +364,15 @@ def run_primary_state_pilot(
             run_dir=run_dir,
             state_profile=state_profile,
             seed=seed,
+            workflow=workflow,
         ):
-            raise ValueError("Completed pilot artifacts failed compatibility validation.")
+            raise ValueError(
+                f"Completed {experiment_label} artifacts failed compatibility validation."
+            )
         return {**completion, "skipped_complete": True}
 
     config_payload = {
-        "workflow": "primary_state_ppo_pilot",
+        "workflow": workflow,
         "state_profile": state_profile,
         "seed": seed,
         "device": resolved_device,
@@ -362,12 +388,15 @@ def run_primary_state_pilot(
         "optimizer": "Adam",
         "ppo": ppo.as_dict(),
         "test_cohort_accessed": False,
+        **dict(config_extras or {}),
     }
     config_path = run_dir / "config.json"
     if config_path.is_file():
         observed = json.loads(config_path.read_text(encoding="utf-8"))
         if canonical_json(observed) != canonical_json(config_payload):
-            raise ValueError("Partial pilot config is incompatible; refusing unsafe resume.")
+            raise ValueError(
+                f"Partial {experiment_label} config is incompatible; refusing unsafe resume."
+            )
     else:
         atomic_write_json(config_path, config_payload)
         atomic_write_json(run_dir / "protocol_snapshot.json", protocol)
@@ -701,3 +730,31 @@ def run_primary_state_pilot(
             env.close()
         fail_run_status(run_dir, exc, last_checkpoint=resume_checkpoint)
         raise
+
+
+def run_primary_state_pilot(
+    *,
+    protocol: dict[str, Any],
+    state_profile: PrimaryStateProfile,
+    seed: int,
+    cohort: CohortBundle,
+    output_root: Path,
+    repo_dir: Path,
+    device: str,
+) -> dict[str, Any]:
+    """Run or safely resume one frozen pilot identity; keep test trajectories sealed."""
+
+    return run_primary_state_experiment(
+        protocol=protocol,
+        state_profile=state_profile,
+        seed=seed,
+        cohort=cohort,
+        output_root=output_root,
+        repo_dir=repo_dir,
+        device=device,
+        protocol_verifier=verify_pilot_protocol,
+        allowed_profiles=PILOT_PROFILES,
+        workflow="primary_state_ppo_pilot",
+        experiment_label="primary-state pilot",
+        config_extras=None,
+    )
